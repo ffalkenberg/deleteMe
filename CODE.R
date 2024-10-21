@@ -76,8 +76,7 @@ orders_full <- orders_full[!is.na(orders_full$order_date) & !is.na(orders_full$d
 
 # summary(orders_full$user_dob)
 
-
-# # Calculate the IQR
+# Calculate the IQR
 # orders_full <- orders_full %>%
 #   mutate(
 #   iqr = IQR(year_of_birth, na.rm = TRUE),
@@ -89,6 +88,21 @@ orders_full <- orders_full[!is.na(orders_full$order_date) & !is.na(orders_full$d
 #     filter(between(year_of_birth, lower_bound, upper_bound)) %>%
 #     # Remove the temporary columns
 #     select(-year_of_birth, -iqr, -lower_bound, -upper_bound)
+
+# Calculate IQR and bounds once for the whole dataset
+iqr_value <- IQR(orders_full$year_of_birth, na.rm = TRUE)
+lower_bound <- quantile(orders_full$year_of_birth, 0.25, na.rm = TRUE) - 1.5 * iqr_value
+upper_bound <- quantile(orders_full$year_of_birth, 0.75, na.rm = TRUE) + 1.5 * iqr_value
+
+outliers <- orders_full %>%
+  filter(!between(year_of_birth, lower_bound, upper_bound))
+
+# Print the outliers
+print(outliers)
+
+# Now filter out the outliers 
+orders_full <- orders_full %>%
+  filter(between(year_of_birth, lower_bound, upper_bound))
 
 ##Task 4
 # Extract unique values from the item_size column

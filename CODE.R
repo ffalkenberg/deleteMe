@@ -1,20 +1,20 @@
-#Install Library
-library(rvest)
-library(dplyr)
-library(httr)
-library(jsonlite)
-library(lubridate)
-library(ggplot2)
+# #Install Library
+# library(rvest)
+# library(dplyr)
+# library(httr)
+# library(jsonlite)
+# library(lubridate)
+# library(ggplot2)
 
 
-#Load data into R
-orders <- read.csv("orders.csv")
-users <- read.csv("users.csv")
+# #Load data into R
+# orders <- read.csv("orders.csv")
+# users <- read.csv("users.csv")
 
-##Task 1
-#Merge two data sets:
-orders_full <- merge(orders, users, by = "user_id", all = TRUE)
-# head(orders_full)
+# ##Task 1
+# #Merge two data sets:
+# orders_full <- merge(orders, users, by = "user_id", all = TRUE)
+# print(head(orders_full))
 
 # ##Task 2
 # #Structure of the data frame
@@ -55,6 +55,13 @@ orders_full <- merge(orders, users, by = "user_id", all = TRUE)
 # mistake_delivery_time <- sum(orders_full$delivery_time <= 0, na.rm = TRUE)
 # mistake_delivery_time
 
+head(orders_full[orders_full$delivery_time <= 0, c("order_date", "delivery_date", "delivery_time")])
+
+# The negative delivery_time rows have missing order_date or delivery_date values. 
+# You can clean the data by removing these rows:
+
+orders_full <- orders_full[!is.na(orders_full$order_date) & !is.na(orders_full$delivery_date), ]
+
 # #Plot the DOB distribution
 # orders_full <- orders_full %>%
 #   mutate(year_of_birth = year(user_dob))
@@ -85,60 +92,21 @@ orders_full <- merge(orders, users, by = "user_id", all = TRUE)
 
 ##Task 4
 # Extract unique values from the item_size column
-unique_item_sizes <- unique(orders_full$item_size)
-print(unique_item_sizes)
+# unique_item_sizes <- unique(orders_full$item_size)
+# print(unique_item_sizes)
 
-#Wrong code, check again
-# Function to categorize item sizes
-# categorize_size <- function(size) {
-#   # Clean the size input
-#   size <- tolower(trimws(as.character(orders_full$item_size)))
-  
-#   # Determine size type
-#   if (size %in% c('xs', 's', 'm', 'l', 'xl', 'xxl', 'xxxl')) {
-#     size_type <- 'letter'
-#   } else if (grepl('^[0-9]+$', size) || grepl('+', size)) {
-#     size_type <- 'numeric'
-#   } else if (size %in% c('116', '128', '140', '164')) {
-#     size_type <- 'children'
-#   } else {
-#     size_type <- 'unusual'
-#   }
-  
-#   # Determine size category
-#   if (size %in% c('xs', 's')) {
-#     size_category <- 'small'
-#   } else if (size == 'm') {
-#     size_category <- 'medium'
-#   } else if (size %in% c('l', 'xl')) {
-#     size_category <- 'large'
-#   } else if (size %in% c('xxl', 'xxxl')) {
-#     size_category <- 'extra large'
-#   } else if (grepl('^[0-9]+$', size)) {
-#     num_size <- as.numeric(size)
-#     if (num_size <= 38) {
-#       size_category <- 'small'
-#     } else if (num_size <= 42) {
-#       size_category <- 'medium'
-#     } else if (num_size <= 45) {
-#       size_category <- 'large'
-#     } else {
-#       size_category <- 'extra large'
-#     }
-#   } else {
-#     size_category <- 'other'
-#   }
-  
-#   return(c(size_category, size_type))
-# }
+# Categorize products based on item_size
+orders_full$product_category <- case_when(
+  orders_full$item_size %in% c("xs", "s", "m", "l", "xl", "xxl", "xxxl") ~ "Clothing",
+  grepl("^[0-9]{2}$", orders_full$item_size) ~ "Shoes",
+  orders_full$item_size %in% c("104", "116", "128", "140", "152", "164", "176") ~ "Children's Clothing",
+  grepl("\\+$", orders_full$item_size) ~ "Plus Size",
+  orders_full$item_size == "unsized" ~ "Unsized Product",
+  TRUE ~ "Other"
+)
 
-# # Apply the function to the dataset
-# size_info <- t(apply(orders_full['item_size'], 1, categorize_size))
-# orders_df$size_category <- size_info[,1]
-# orders_df$size_type <- size_info[,2]
-
-# summary_stats <- summary(orders_full)
-# summary_stats
+# Display the product categories
+print(unique(orders_full$product_category))
 
 # ##Exercise 2: Web Scraping
 # #Install Library

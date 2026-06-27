@@ -106,6 +106,9 @@
   /* drag-to-select multiple fields */
   .sel-box { position: fixed; z-index: 50; background: rgba(79,140,255,0.16); border: 1px solid var(--accent); pointer-events: none; border-radius: 2px; }
   .kbox.sel { outline: 2px solid var(--accent); outline-offset: 1px; }
+  /* make every selected field look text-selected, not just the focused one */
+  .kbox.sel input { background: rgba(79,140,255,0.32); color: #fff; border-radius: 3px; }
+  .kbox.sel input::selection { background: rgba(79,140,255,0.55); color: #fff; }
   /* don't let dragging text-select the rows; inputs/start cell stay editable */
   .table-wrap { -webkit-user-select: none; user-select: none; }
   .table-wrap input, .editable-start { -webkit-user-select: text; user-select: text; }

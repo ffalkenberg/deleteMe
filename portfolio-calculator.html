@@ -108,7 +108,9 @@
   .kbox.sel { outline: 2px solid var(--accent); outline-offset: 1px; }
   /* don't let dragging text-select the rows; inputs/start cell stay editable */
   .table-wrap { -webkit-user-select: none; user-select: none; }
-  .table-wrap input, .editable-start { -webkit-user-select: text; user-select: text; }
+  .table-wrap input { -webkit-user-select: text; user-select: text; }
+  /* Y0 amount is only selectable while it's actually being edited */
+  .editable-start:focus { -webkit-user-select: text; user-select: text; }
   /* header numeric controls with steppers */
   .hbox { display: inline-flex; align-items: stretch; width: 110px; height: 38px; background: var(--panel-2);
           border: 1px solid var(--border); border-radius: 8px; }

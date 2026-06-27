@@ -106,9 +106,6 @@
   /* drag-to-select multiple fields */
   .sel-box { position: fixed; z-index: 50; background: rgba(79,140,255,0.16); border: 1px solid var(--accent); pointer-events: none; border-radius: 2px; }
   .kbox.sel { outline: 2px solid var(--accent); outline-offset: 1px; }
-  /* make every selected field look text-selected, not just the focused one */
-  .kbox.sel input { background: rgba(79,140,255,0.32); color: #fff; border-radius: 3px; }
-  .kbox.sel input::selection { background: rgba(79,140,255,0.55); color: #fff; }
   /* don't let dragging text-select the rows; inputs/start cell stay editable */
   .table-wrap { -webkit-user-select: none; user-select: none; }
   .table-wrap input, .editable-start { -webkit-user-select: text; user-select: text; }
@@ -590,19 +587,11 @@ els.tbody.addEventListener("input", (e) => {
   }
   if (t.dataset.i !== undefined) {
     const i = +t.dataset.i, f = t.dataset.f;
-    const raw = num(t.value, 0);
-    // if this field is part of an active multi-selection, fill the whole group
-    const group = (selected.length > 1 && selected.some(s => s.i === i && s.f === f)) ? selected : [{ i, f }];
-    group.forEach((s) => {
-      let v = raw;
-      if ((s.f === "add" || s.f === "withdraw") && v < 0) v = 0;
-      rows[s.i][s.f] = v;
-      const inp = fieldInput(s);
-      if (inp) {
-        if (!(s.i === i && s.f === f)) inp.value = v;            // mirror to the others (not the one being typed)
-        if (s.f === "add" || s.f === "withdraw") inp.closest(".kbox").classList.toggle("dim", v === 0);
-      }
-    });
+    rows[i][f] = num(t.value, 0);
+    if (f === "add" || f === "withdraw") {
+      const box = t.closest(".kbox");
+      if (box) box.classList.toggle("dim", rows[i][f] === 0);
+    }
     const computed = compute();
     renderSummary(computed);
     drawChart(computed);
@@ -697,9 +686,37 @@ document.body.appendChild(selBox);
 let selAnchor = null;      // {x,y} pending drag origin
 let selecting = false;
 let selected = [];         // [{i, f}] — persists after the drag for group typing
+let groupBuffer = "";      // what the user has typed for the whole selection
 
-function clearSelection() { els.tbody.querySelectorAll(".kbox.sel").forEach(b => b.classList.remove("sel")); selected = []; }
+function clearSelection() { els.tbody.querySelectorAll(".kbox.sel").forEach(b => b.classList.remove("sel")); selected = []; groupBuffer = ""; }
 function fieldInput(s) { return els.tbody.querySelector(`input[data-i="${s.i}"][data-f="${s.f}"]`); }
+
+// Apply the typed buffer to every selected cell at once, live.
+function applyGroup() {
+  const v = parseFloat(groupBuffer);
+  const n = Number.isFinite(v) ? v : 0;
+  selected.forEach((s) => {
+    let val = n;
+    if ((s.f === "add" || s.f === "withdraw") && val < 0) val = 0;
+    rows[s.i][s.f] = val;
+    const inp = fieldInput(s);
+    if (inp) {
+      inp.value = groupBuffer;
+      if (s.f === "add" || s.f === "withdraw") inp.closest(".kbox").classList.toggle("dim", val === 0);
+    }
+  });
+  const computed = compute();
+  renderSummary(computed); drawChart(computed); updateAmounts(computed);
+}
+
+// While a selection is active, typing fills the whole group (no single caret).
+document.addEventListener("keydown", (e) => {
+  if (selected.length < 2) return;
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.key === "Escape" || e.key === "Enter" || e.key === "Tab") { clearSelection(); return; }
+  if (e.key === "Backspace") { groupBuffer = groupBuffer.slice(0, -1); applyGroup(); e.preventDefault(); return; }
+  if (/^[0-9.]$/.test(e.key) || (e.key === "-" && groupBuffer === "")) { groupBuffer += e.key; applyGroup(); e.preventDefault(); }
+});
 
 tableWrap.addEventListener("mousedown", (e) => {
   if (e.button !== 0) return;
@@ -740,9 +757,7 @@ document.addEventListener("mouseup", () => {
   selAnchor = null; selecting = false;
   selBox.style.display = "none";
   if (wasSelecting && selected.length) {
-    // drop a caret into the first selected field; typing fills the whole group
-    const inp = fieldInput(selected[0]);
-    if (inp) { inp.focus(); inp.select(); }
+    groupBuffer = "";          // next keystrokes fill the whole group (nothing is "marked")
   } else {
     clearSelection();
   }
@@ -750,7 +765,6 @@ document.addEventListener("mouseup", () => {
 
 // click outside the table clears any active selection
 document.addEventListener("mousedown", (e) => { if (selected.length && !tableWrap.contains(e.target)) clearSelection(); });
-els.tbody.addEventListener("keydown", (e) => { if (e.key === "Escape" && selected.length) { clearSelection(); e.target.blur(); } });
 
 // ---- Init --------------------------------------------------------------
 rows = defaultRows(num(els.count.value, 20));

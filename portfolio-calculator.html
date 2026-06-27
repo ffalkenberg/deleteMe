@@ -63,6 +63,9 @@
   th { color: var(--muted); font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: .03em; }
   th:first-child, td:first-child { text-align: left; }
   tr:nth-child(even) td { background: var(--row-alt); }
+  tbody tr { height: 47px; }
+  .editable-start { cursor: text; }
+  .editable-start:focus { outline: none; }
   td input {
     background: transparent;
     border: 1px solid transparent;
@@ -350,7 +353,9 @@ function renderTable(computed) {
       <td>${isStart ? "" : kField("add", r.add, "k", 1, 0)}</td>
       <td>${isStart ? "" : kField("withdraw", r.withdraw, "k", 1, 0)}</td>
       <td>${isStart ? "" : kField("rate", rateVal, "%", 0.5, null)}</td>
-      <td class="amount ${dirClass}">${main}${realLine}</td>
+      ${isStart
+        ? `<td class="amount editable-start" contenteditable="true" spellcheck="false" title="Click to edit start amount">${main}</td>`
+        : `<td class="amount ${dirClass}">${main}${realLine}</td>`}
       <td class="row-actions">${i === rows.length - 1 && !isStart ? `<button data-del="${i}" title="Remove last year">×</button>` : ""}</td>`;
     els.tbody.appendChild(tr);
   });
@@ -553,7 +558,7 @@ function updateAmounts(computed) {
   els.tbody.querySelectorAll("tr").forEach((tr, i) => {
     const c = computed[i];
     const cell = tr.children[4];
-    if (i === 0) { cell.className = "amount"; cell.textContent = startMissing() ? "..." : money(c.amount); return; }
+    if (i === 0) return; // Y0 is the editable start cell — don't clobber the caret
     const realLine = showReal ? `<div class="real">real ${money(c.real)}</div>` : "";
     cell.className = "amount " + (c.amount >= c.prev ? "up" : "down");
     cell.innerHTML = `${money(c.amount)}${realLine}`;
@@ -563,6 +568,16 @@ function updateAmounts(computed) {
 // ---- Events ------------------------------------------------------------
 els.tbody.addEventListener("input", (e) => {
   const t = e.target;
+  // inline-editable start amount (Y0)
+  if (t.classList && t.classList.contains("editable-start")) {
+    const v = parseFloat(t.textContent);
+    els.start.value = Number.isFinite(v) ? v : "";
+    const computed = compute();
+    renderSummary(computed);
+    drawChart(computed);
+    updateAmounts(computed); // skips Y0, so the caret is preserved
+    return;
+  }
   if (t.dataset.i !== undefined) {
     const i = +t.dataset.i, f = t.dataset.f;
     rows[i][f] = num(t.value, 0);
@@ -575,6 +590,18 @@ els.tbody.addEventListener("input", (e) => {
     drawChart(computed);
     updateAmounts(computed);
   }
+});
+
+// Enter confirms the start edit; reformat (re-add "k") on blur.
+els.tbody.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && e.target.classList && e.target.classList.contains("editable-start")) {
+    e.preventDefault();
+    e.target.blur();
+  }
+});
+els.tbody.addEventListener("focusout", (e) => {
+  if (e.target.classList && e.target.classList.contains("editable-start"))
+    e.target.textContent = startMissing() ? "..." : money(num(els.start.value, 0));
 });
 
 // Normalise a cell to a clean number once editing finishes.

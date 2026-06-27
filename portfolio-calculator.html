@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Portfolio Growth Calculator</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #171a21;
+    --panel-2: #1d212b;
+    --border: #2a2f3a;
+    --text: #e7eaf0;
+    --muted: #8a93a6;
+    --accent: #4f8cff;
+    --green: #38c172;
+    --red: #ef5350;
+    --amber: #f0b429;
+    --row-alt: #14171e;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+  }
+  header {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 20px;
+  }
+  header h1 { margin: 0; font-size: 20px; font-weight: 600; }
+  header p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+  .controls { display: flex; flex-wrap: wrap; gap: 16px; margin-left: auto; align-items: flex-end; }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field label { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  .field input, .field select {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 8px 10px;
+    width: 110px;
+    font-size: 14px;
+    font-family: inherit;
+  }
+  .field input:focus, .field select:focus { outline: none; border-color: var(--accent); }
+  .check { display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; padding-bottom: 8px; }
+  .check input { width: 16px; height: 16px; accent-color: var(--accent); }
+  .check span { font-size: 13px; color: var(--text); }
+  .layout { display: grid; grid-template-columns: 1.1fr 1fr; gap: 0; }
+  @media (max-width: 1000px) { .layout { grid-template-columns: 1fr; } }
+  .table-wrap { padding: 18px 24px; overflow-x: auto; border-right: 1px solid var(--border); max-height: 78vh; }
+  .chart-wrap { padding: 18px 24px; position: sticky; top: 0; align-self: start; }
+  table { border-collapse: collapse; width: 100%; min-width: 600px; }
+  th, td { padding: 8px 10px; text-align: right; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  thead th { position: sticky; top: 0; background: var(--bg); z-index: 1; }
+  th { color: var(--muted); font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: .03em; }
+  th:first-child, td:first-child { text-align: left; }
+  tr:nth-child(even) td { background: var(--row-alt); }
+  td input {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text);
+    border-radius: 6px;
+    padding: 5px 7px;
+    width: 88px;
+    text-align: right;
+    font-size: 14px;
+    font-family: inherit;
+  }
+  td input:hover { border-color: var(--border); }
+  td input:focus { outline: none; border-color: var(--accent); background: var(--panel-2); }
+  /* no spinner arrows — values are typed directly */
+  input[type=number]::-webkit-inner-spin-button,
+  input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+  input[type=number] { -moz-appearance: textfield; appearance: textfield; }
+  .period-label { font-weight: 600; }
+  .amount { font-variant-numeric: tabular-nums; font-weight: 600; }
+  .amount.up { color: var(--green); }
+  .amount.down { color: var(--red); }
+  .real { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .delta { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .delta.up { color: var(--green); }
+  .delta.down { color: var(--red); }
+  .row-actions button {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    border-radius: 6px;
+    width: 24px; height: 24px;
+    cursor: pointer;
+    line-height: 1;
+  }
+  .row-actions button:hover { color: var(--text); border-color: var(--accent); }
+  .toolbar { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+  .btn {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 9px 16px;
+    font-size: 14px;
+    cursor: pointer;
+    font-weight: 500;
+  }
+  .btn.secondary { background: var(--panel-2); color: var(--text); border: 1px solid var(--border); }
+  .btn:hover { filter: brightness(1.1); }
+  .summary { display: flex; gap: 24px; flex-wrap: wrap; margin-bottom: 14px; }
+  .stat .k { font-size: 11px; text-transform: uppercase; color: var(--muted); letter-spacing: .04em; }
+  .stat .v { font-size: 21px; font-weight: 600; font-variant-numeric: tabular-nums; margin-top: 2px; }
+  .stat .v.green { color: var(--green); }
+  .stat .v.red { color: var(--red); }
+  .stat .sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  canvas { width: 100%; height: 380px; display: block; }
+  .hint { color: var(--muted); font-size: 12px; margin-top: 10px; line-height: 1.5; }
+  .chart-legend { display: flex; gap: 18px; margin-top: 8px; font-size: 12px; color: var(--muted); flex-wrap: wrap; }
+  .chart-legend span { display: inline-flex; align-items: center; }
+  .chart-legend span::before { content: ""; display: inline-block; width: 12px; height: 3px; border-radius: 2px; margin-right: 6px; }
+  .lg-value::before { background: var(--accent); }
+  .lg-real::before { background: var(--amber); }
+  .lg-contrib::before { background: var(--muted); border-top: 2px dashed var(--muted); height: 0 !important; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Portfolio Growth Calculator</h1>
+    <p>Edit any cell — the table, summary and chart update in real time.</p>
+  </div>
+  <div class="controls">
+    <div class="field">
+      <label for="start">Start (k)</label>
+      <input id="start" type="number" step="10" value="300" />
+    </div>
+    <div class="field">
+      <label for="rate">Annual return %</label>
+      <input id="rate" type="number" step="0.1" value="6" />
+    </div>
+    <div class="field">
+      <label for="inflation">Inflation %</label>
+      <input id="inflation" type="number" step="0.1" value="2" />
+    </div>
+    <div class="field">
+      <label for="period">Period</label>
+      <select id="period">
+        <option value="year" selected>Yearly</option>
+        <option value="month">Monthly</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="count" id="countLabel">Years</label>
+      <input id="count" type="number" step="1" min="1" max="600" value="20" />
+    </div>
+    <label class="check"><input id="showReal" type="checkbox" /><span>Adjust for inflation</span></label>
+  </div>
+</header>
+
+<div class="layout">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th id="hPeriod">Year</th>
+          <th>Add (k)</th>
+          <th>Withdraw (k)</th>
+          <th id="hRate">Rate</th>
+          <th>Amount (k)</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+    <div class="toolbar">
+      <button class="btn" id="addRow">+ Add period</button>
+      <button class="btn secondary" id="csv">Export CSV</button>
+      <button class="btn secondary" id="reset">Reset</button>
+    </div>
+    <p class="hint" id="hint"></p>
+  </div>
+
+  <div class="chart-wrap">
+    <div class="summary">
+      <div class="stat"><div class="k">Final amount</div><div class="v" id="s-final">—</div><div class="sub" id="s-final-sub"></div></div>
+      <div class="stat"><div class="k">Total contributed</div><div class="v" id="s-contrib">—</div></div>
+      <div class="stat"><div class="k">Total growth</div><div class="v" id="s-growth">—</div></div>
+    </div>
+    <canvas id="chart"></canvas>
+    <div class="chart-legend">
+      <span class="lg-value">Portfolio value</span>
+      <span class="lg-real" id="lg-real-wrap" style="display:none">Real value (today's €)</span>
+      <span class="lg-contrib">Net contributions</span>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+const els = {
+  start: document.getElementById("start"),
+  rate: document.getElementById("rate"),
+  inflation: document.getElementById("inflation"),
+  period: document.getElementById("period"),
+  count: document.getElementById("count"),
+  countLabel: document.getElementById("countLabel"),
+  showReal: document.getElementById("showReal"),
+  tbody: document.getElementById("tbody"),
+  addRow: document.getElementById("addRow"),
+  csv: document.getElementById("csv"),
+  reset: document.getElementById("reset"),
+  chart: document.getElementById("chart"),
+  sFinal: document.getElementById("s-final"),
+  sFinalSub: document.getElementById("s-final-sub"),
+  sContrib: document.getElementById("s-contrib"),
+  sGrowth: document.getElementById("s-growth"),
+  hPeriod: document.getElementById("hPeriod"),
+  hRate: document.getElementById("hRate"),
+  hint: document.getElementById("hint"),
+  lgRealWrap: document.getElementById("lg-real-wrap"),
+};
+
+// Each row: { add, withdraw, rate }  — rate is an ANNUAL percent; null => use default.
+let rows = [];
+
+function defaultRows(n) {
+  const out = [];
+  for (let i = 0; i <= n; i++) out.push({ add: 0, withdraw: 0, rate: null });
+  return out;
+}
+function num(v, fallback) { const n = parseFloat(v); return Number.isFinite(n) ? n : fallback; }
+function startMissing() { return !Number.isFinite(parseFloat(els.start.value)); }
+function periodsPerYear() { return els.period.value === "month" ? 12 : 1; }
+function unitLetter() { return els.period.value === "month" ? "M" : "Y"; }
+
+// ---- Compute -----------------------------------------------------------
+// Rates are entered as ANNUAL %. Per-period growth uses the equivalent
+// periodic rate so monthly and yearly modes stay consistent.
+function compute() {
+  const start = num(els.start.value, 0);
+  const defAnnual = num(els.rate.value, 0);
+  const infAnnual = num(els.inflation.value, 0);
+  const ppy = periodsPerYear();
+  const infPer = Math.pow(1 + infAnnual / 100, 1 / ppy);
+
+  const result = [];
+  let amount = start;
+  let contributions = start;
+
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    if (i === 0) {
+      result.push({ amount: start, contrib: start, prev: start, real: start });
+      continue;
+    }
+    const annual = r.rate === null ? defAnnual : r.rate;
+    const perRate = Math.pow(1 + annual / 100, 1 / ppy) - 1; // periodic growth rate
+    const add = r.add || 0;
+    const withdraw = r.withdraw || 0;
+    const prev = amount;
+    amount = prev * (1 + perRate) + add - withdraw;
+    contributions += add - withdraw;
+    const real = amount / Math.pow(infPer, i); // value in today's money
+    result.push({ amount, contrib: contributions, prev, real });
+  }
+  return result;
+}
+
+// ---- Format ------------------------------------------------------------
+// The whole model works in thousands (k): inputs are entered in k and every
+// amount is already a k-value. Small values keep one decimal so they don't
+// collapse to 0k; larger ones are rounded to whole k.
+function money(v) {
+  const decimals = Math.abs(v) !== 0 && Math.abs(v) < 100 ? 1 : 0;
+  return new Intl.NumberFormat("en-US", { minimumFractionDigits: 0, maximumFractionDigits: decimals }).format(v) + "k";
+}
+function shortMoney(v) { return money(v); }
+
+// ---- Render table ------------------------------------------------------
+function renderTable(computed) {
+  const defAnnual = num(els.rate.value, 0);
+  const showReal = els.showReal.checked;
+  const L = unitLetter();
+  els.tbody.innerHTML = "";
+  rows.forEach((r, i) => {
+    const c = computed[i];
+    const tr = document.createElement("tr");
+    const isStart = i === 0;
+    const rateVal = r.rate === null ? defAnnual : r.rate;
+    const realLine = showReal && !isStart ? `<div class="real">real ${money(c.real)}</div>` : "";
+    const dirClass = isStart ? "" : (c.amount >= c.prev ? "up" : "down");
+    const main = isStart && startMissing() ? "..." : money(c.amount);
+    tr.innerHTML = `
+      <td class="period-label">${L}${i}</td>
+      <td>${isStart ? "" : `<input data-i="${i}" data-f="add" type="text" inputmode="decimal" value="${r.add}k">`}</td>
+      <td>${isStart ? "" : `<input data-i="${i}" data-f="withdraw" type="text" inputmode="decimal" value="${r.withdraw}k">`}</td>
+      <td>${isStart ? "" : `<input data-i="${i}" data-f="rate" type="number" step="0.1" value="${rateVal}">`}</td>
+      <td class="amount ${dirClass}">${main}${realLine}</td>
+      <td class="row-actions">${isStart ? "" : `<button data-del="${i}" title="Remove">×</button>`}</td>`;
+    els.tbody.appendChild(tr);
+  });
+}
+
+// ---- Summary -----------------------------------------------------------
+function renderSummary(computed) {
+  const last = computed[computed.length - 1];
+  const start = num(els.start.value, 0);
+  const growth = last.amount - last.contrib;
+  els.sFinal.textContent = money(last.amount);
+  els.sFinal.className = "v " + (last.amount >= start ? "green" : "red");
+  els.sFinalSub.textContent = els.showReal.checked || num(els.inflation.value, 0) !== 0
+    ? "real " + money(last.real) : "";
+  els.sContrib.textContent = money(last.contrib);
+  els.sGrowth.textContent = money(growth);
+  els.sGrowth.className = "v " + (growth >= 0 ? "green" : "red");
+}
+
+// ---- Chart (dependency-free canvas) ------------------------------------
+function drawChart(computed) {
+  const canvas = els.chart;
+  const dpr = window.devicePixelRatio || 1;
+  const cssW = canvas.clientWidth || 600;
+  const cssH = canvas.clientHeight || 380;
+  canvas.width = cssW * dpr; canvas.height = cssH * dpr;
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, cssW, cssH);
+
+  const padL = 64, padR = 16, padT = 16, padB = 28;
+  const w = cssW - padL - padR, h = cssH - padT - padB;
+  const showReal = els.showReal.checked;
+
+  const values = computed.map(c => c.amount);
+  const contribs = computed.map(c => c.contrib);
+  const reals = computed.map(c => c.real);
+  const all = values.concat(contribs, showReal ? reals : []);
+  let maxV = Math.max(...all, 0), minV = Math.min(...all, 0);
+  if (maxV === minV) maxV = minV + 1;
+  const range = maxV - minV; maxV += range * 0.05; minV -= range * 0.05;
+
+  const n = computed.length;
+  const x = i => padL + (n === 1 ? w / 2 : (i / (n - 1)) * w);
+  const y = v => padT + h - ((v - minV) / (maxV - minV)) * h;
+
+  ctx.font = "11px -apple-system, sans-serif";
+  ctx.lineWidth = 1;
+  const ticks = 5;
+  for (let t = 0; t <= ticks; t++) {
+    const v = minV + (t / ticks) * (maxV - minV), yy = y(v);
+    ctx.strokeStyle = "#2a2f3a"; ctx.globalAlpha = 0.5;
+    ctx.beginPath(); ctx.moveTo(padL, yy); ctx.lineTo(padL + w, yy); ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = "#8a93a6"; ctx.textAlign = "right";
+    ctx.fillText(shortMoney(v), padL - 8, yy + 3);
+  }
+  if (minV < 0 && maxV > 0) {
+    ctx.strokeStyle = "#3a4150";
+    ctx.beginPath(); ctx.moveTo(padL, y(0)); ctx.lineTo(padL + w, y(0)); ctx.stroke();
+  }
+  ctx.fillStyle = "#8a93a6"; ctx.textAlign = "center";
+  const L = unitLetter();
+  const step = Math.max(1, Math.ceil(n / 12));
+  for (let i = 0; i < n; i += step) ctx.fillText(L + i, x(i), padT + h + 18);
+
+  const line = (arr, color, dash, width) => {
+    ctx.setLineDash(dash); ctx.strokeStyle = color; ctx.lineWidth = width;
+    ctx.beginPath();
+    arr.forEach((v, i) => { i ? ctx.lineTo(x(i), y(v)) : ctx.moveTo(x(i), y(v)); });
+    ctx.stroke(); ctx.setLineDash([]);
+  };
+
+  // contributions (dashed grey)
+  line(contribs, "#8a93a6", [4, 4], 1.5);
+
+  // value area + line (blue)
+  const grad = ctx.createLinearGradient(0, padT, 0, padT + h);
+  grad.addColorStop(0, "rgba(79,140,255,0.32)");
+  grad.addColorStop(1, "rgba(79,140,255,0.02)");
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  values.forEach((v, i) => { i ? ctx.lineTo(x(i), y(v)) : ctx.moveTo(x(i), y(v)); });
+  ctx.lineTo(x(n - 1), y(minV)); ctx.lineTo(x(0), y(minV)); ctx.closePath(); ctx.fill();
+  line(values, "#4f8cff", [], 2.5);
+
+  // real value (amber) when enabled
+  if (showReal) line(reals, "#f0b429", [], 2);
+
+  ctx.fillStyle = "#4f8cff";
+  values.forEach((v, i) => { ctx.beginPath(); ctx.arc(x(i), y(v), 2.5, 0, Math.PI * 2); ctx.fill(); });
+}
+
+// ---- Labels / hint -----------------------------------------------------
+function syncLabels() {
+  const monthly = els.period.value === "month";
+  els.countLabel.textContent = monthly ? "Months" : "Years";
+  els.hPeriod.textContent = monthly ? "Month" : "Year";
+  els.hRate.textContent = monthly ? "Rate (ann.)" : "Rate";
+  els.addRow.textContent = monthly ? "+ Add month" : "+ Add year";
+  els.lgRealWrap.style.display = els.showReal.checked ? "" : "none";
+  const unit = monthly ? "month" : "year";
+  els.hint.innerHTML = `Each ${unit}: <em>Amount = previous × (1 + rate) + Add − Withdraw</em>. ` +
+    `Rates are entered as <strong>annual %</strong>${monthly ? " and compounded monthly" : ""}. ` +
+    `Per-row Add, Withdraw and Rate override the defaults.` +
+    (els.showReal.checked ? ` <em>Real</em> values are discounted by inflation into today's €.` : "");
+}
+
+// ---- CSV ---------------------------------------------------------------
+function exportCSV() {
+  const computed = compute();
+  const defAnnual = num(els.rate.value, 0);
+  const L = unitLetter();
+  const r1 = v => Math.round(v * 10) / 10; // 1-decimal k
+  const head = ["Period", "Index", "Add_k", "Withdraw_k", "Rate(annual%)", "Amount_k", "RealAmount_k", "NetContributions_k"];
+  const lines = [head.join(",")];
+  rows.forEach((r, i) => {
+    const c = computed[i];
+    const rate = i === 0 ? "" : (r.rate === null ? defAnnual : r.rate);
+    lines.push([
+      `${L}${i}`, i, i === 0 ? "" : (r.add || 0), i === 0 ? "" : (r.withdraw || 0),
+      rate, r1(c.amount), r1(c.real), r1(c.contrib)
+    ].join(","));
+  });
+  const blob = new Blob([lines.join("\n")], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = "portfolio.csv";
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+
+// ---- Orchestration -----------------------------------------------------
+function render() {
+  syncLabels();
+  const computed = compute();
+  renderTable(computed);
+  renderSummary(computed);
+  drawChart(computed);
+}
+
+function syncCount() {
+  const target = Math.max(1, Math.min(600, Math.round(num(els.count.value, 20))));
+  while (rows.length - 1 < target) rows.push({ add: 0, withdraw: 0, rate: null });
+  while (rows.length - 1 > target) rows.pop();
+}
+
+function updateAmounts(computed) {
+  const showReal = els.showReal.checked;
+  els.tbody.querySelectorAll("tr").forEach((tr, i) => {
+    const c = computed[i];
+    const cell = tr.children[4];
+    if (i === 0) { cell.className = "amount"; cell.textContent = startMissing() ? "..." : money(c.amount); return; }
+    const realLine = showReal ? `<div class="real">real ${money(c.real)}</div>` : "";
+    cell.className = "amount " + (c.amount >= c.prev ? "up" : "down");
+    cell.innerHTML = `${money(c.amount)}${realLine}`;
+  });
+}
+
+// ---- Events ------------------------------------------------------------
+els.tbody.addEventListener("input", (e) => {
+  const t = e.target;
+  if (t.dataset.i !== undefined) {
+    rows[+t.dataset.i][t.dataset.f] = num(t.value, 0);
+    const computed = compute();
+    renderSummary(computed);
+    drawChart(computed);
+    updateAmounts(computed);
+  }
+});
+
+// Re-append the "k" suffix once the user finishes editing an Add/Withdraw cell.
+els.tbody.addEventListener("change", (e) => {
+  const t = e.target;
+  if (t.dataset.i !== undefined && (t.dataset.f === "add" || t.dataset.f === "withdraw")) {
+    t.value = (rows[+t.dataset.i][t.dataset.f] || 0) + "k";
+  }
+});
+
+els.tbody.addEventListener("click", (e) => {
+  const del = e.target.dataset.del;
+  if (del !== undefined) {
+    rows.splice(+del, 1);
+    els.count.value = rows.length - 1;
+    render();
+  }
+});
+
+[els.start, els.rate, els.inflation].forEach(el => el.addEventListener("input", render));
+els.count.addEventListener("input", () => { syncCount(); render(); });
+els.period.addEventListener("change", render);
+els.showReal.addEventListener("change", render);
+els.addRow.addEventListener("click", () => { rows.push({ add: 0, withdraw: 0, rate: null }); els.count.value = rows.length - 1; render(); });
+els.csv.addEventListener("click", exportCSV);
+els.reset.addEventListener("click", () => {
+  els.start.value = 300; els.rate.value = 6; els.inflation.value = 2;
+  els.period.value = "year"; els.count.value = 20; els.showReal.checked = false;
+  rows = defaultRows(20); render();
+});
+window.addEventListener("resize", render);
+
+// ---- Init --------------------------------------------------------------
+rows = defaultRows(num(els.count.value, 20));
+render();
+</script>
+</body>
+</html>

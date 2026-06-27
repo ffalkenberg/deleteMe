@@ -55,7 +55,7 @@
   .check span { font-size: 13px; color: var(--text); }
   .layout { display: grid; grid-template-columns: 1.1fr 1fr; gap: 0; }
   @media (max-width: 1000px) { .layout { grid-template-columns: 1fr; } }
-  .table-wrap { padding: 18px 24px; border-right: 1px solid var(--border); }
+  .table-wrap { padding: 18px 24px; }
   .table-scroll { overflow: auto; max-height: 72vh; }
   .chart-wrap { padding: 18px 24px; position: sticky; top: 0; align-self: start; }
   table { border-collapse: collapse; width: 100%; min-width: 780px; }
@@ -234,7 +234,6 @@
       <button class="btn secondary" id="csv">Export CSV</button>
       <button class="btn secondary" id="reset">Reset</button>
     </div>
-    <p class="hint" id="hint"></p>
   </div>
 
   <div class="chart-wrap">
@@ -273,7 +272,6 @@ const els = {
   sGrowth: document.getElementById("s-growth"),
   hPeriod: document.getElementById("hPeriod"),
   hRate: document.getElementById("hRate"),
-  hint: document.getElementById("hint"),
   lgRealWrap: document.getElementById("lg-real-wrap"),
 };
 
@@ -520,10 +518,6 @@ function drawChart(computed, hover) {
 function syncLabels() {
   els.inflationField.style.display = els.showReal.checked ? "" : "none";
   els.lgRealWrap.style.display = els.showReal.checked ? "" : "none";
-  els.hint.innerHTML = `Each year: <em>Amount = previous × (1 + rate) + Add − Withdraw</em>. ` +
-    `Per-row Add, Withdraw and Rate override the defaults above. ` +
-    `<em>Tip:</em> drag a box over cells to set them all at once.` +
-    (els.showReal.checked ? ` <em>Real</em> values are discounted by inflation into today's €.` : "");
 }
 
 // ---- CSV ---------------------------------------------------------------

@@ -102,10 +102,10 @@
   .kbox.dim input, .kbox.dim .ksuffix { color: #5b6470; }
   /* header numeric controls with steppers */
   .hbox { display: inline-flex; align-items: stretch; width: 110px; height: 38px; background: var(--panel-2);
-          border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+          border: 1px solid var(--border); border-radius: 8px; }
   .hbox:focus-within { border-color: var(--accent); }
   .hbox input { flex: 1; width: auto; min-width: 0; border: none; background: transparent; color: var(--text);
-                padding: 8px 4px 8px 10px; font-size: 14px; font-family: inherit; border-radius: 0; }
+                padding: 8px 4px 8px 10px; font-size: 14px; font-family: inherit; border-radius: 8px 0 0 8px; }
   .hbox input:hover { border: none; }
   .hbox input:focus { outline: none; }
   .hsteps { display: flex; flex-direction: column; border-left: 1px solid var(--border); }
@@ -113,7 +113,8 @@
            background: transparent; border: none; color: var(--muted); font-size: 9px; line-height: 1; cursor: pointer; }
   .hstep:hover { background: #262c3a; color: var(--text); }
   .hstep:active { background: var(--accent); color: #fff; }
-  .hstep.down { border-top: 1px solid var(--border); }
+  .hstep.up { border-top-right-radius: 7px; }
+  .hstep.down { border-top: 1px solid var(--border); border-bottom-right-radius: 7px; }
   .period-label { font-weight: 600; }
   .amount { font-variant-numeric: tabular-nums; font-weight: 600; }
   .amount.up { color: var(--green); }
@@ -170,7 +171,7 @@
   <div class="controls">
     <div class="field">
       <label for="start">Start (k)</label>
-      <div class="hbox"><input id="start" type="number" value="300" /><span class="hsteps"><button type="button" class="hstep up" data-target="start" data-step="10" data-min="0" aria-label="increase">▲</button><button type="button" class="hstep down" data-target="start" data-step="-10" data-min="0" aria-label="decrease">▼</button></span></div>
+      <div class="hbox"><input id="start" type="number" value="300" /><span class="hsteps"><button type="button" class="hstep up" data-target="start" data-step="1" data-min="0" aria-label="increase">▲</button><button type="button" class="hstep down" data-target="start" data-step="-1" data-min="0" aria-label="decrease">▼</button></span></div>
     </div>
     <div class="field">
       <label for="rate">Annual return %</label>
@@ -261,7 +262,7 @@ function defaultRows(n) {
 function num(v, fallback) { const n = parseFloat(v); return Number.isFinite(n) ? n : fallback; }
 function startMissing() { return !Number.isFinite(parseFloat(els.start.value)); }
 function periodsPerYear() { return 1; }
-function unitLetter() { return "Y"; }
+function unitLetter() { return ""; }
 
 // ---- Compute -----------------------------------------------------------
 // Rates are entered as ANNUAL %. Per-period growth uses the equivalent
@@ -457,7 +458,7 @@ function drawChart(computed, hover) {
     ctx.fillStyle = "#4f8cff"; ctx.beginPath(); ctx.arc(hx, hy, 4.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
 
     const c = computed[hover];
-    const lines = [L + hover, money(c.amount)];
+    const lines = ["Year " + hover, money(c.amount)];
     if (showReal) lines.push("real " + money(c.real));
     ctx.font = "13px -apple-system, sans-serif";
     const tw = Math.max(...lines.map(s => ctx.measureText(s).width)) + 18;

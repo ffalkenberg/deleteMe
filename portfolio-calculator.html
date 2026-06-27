@@ -57,7 +57,7 @@
   @media (max-width: 1000px) { .layout { grid-template-columns: 1fr; } }
   .table-wrap { padding: 18px 24px; overflow-x: auto; border-right: 1px solid var(--border); max-height: 78vh; }
   .chart-wrap { padding: 18px 24px; position: sticky; top: 0; align-self: start; }
-  table { border-collapse: collapse; width: 100%; min-width: 600px; }
+  table { border-collapse: collapse; width: 100%; min-width: 700px; }
   th, td { padding: 8px 10px; text-align: right; border-bottom: 1px solid var(--border); white-space: nowrap; }
   thead th { position: sticky; top: 0; background: var(--bg); z-index: 1; }
   th { color: var(--muted); font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: .03em; }
@@ -76,10 +76,28 @@
   }
   td input:hover { border-color: var(--border); }
   td input:focus { outline: none; border-color: var(--accent); background: var(--panel-2); }
-  /* no spinner arrows — values are typed directly */
+  /* no native spinner arrows — we use custom steppers */
   input[type=number]::-webkit-inner-spin-button,
   input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
   input[type=number] { -moz-appearance: textfield; appearance: textfield; }
+  /* Add/Withdraw amount field: number entry with a fixed "k" suffix and a
+     stacked up/down stepper that's large enough to click comfortably. */
+  .kbox { display: inline-flex; align-items: stretch; height: 30px; background: var(--panel-2);
+          border: 1px solid transparent; border-radius: 7px; padding-left: 8px; }
+  .kbox:hover { border-color: var(--border); }
+  .kbox:focus-within { border-color: var(--accent); }
+  .kbox input { width: 44px; text-align: right; border: none; background: transparent; color: var(--text);
+                padding: 0 1px; font-size: 14px; font-family: inherit; }
+  .kbox input:hover { border: none; }
+  .kbox input:focus { outline: none; background: transparent; }
+  .kbox .ksuffix { display: inline-flex; align-items: center; color: var(--muted); font-size: 13px; padding: 0 6px 0 1px; user-select: none; }
+  .ksteps { display: flex; flex-direction: column; border-left: 1px solid var(--border); }
+  .kstep { flex: 1; width: 26px; display: flex; align-items: center; justify-content: center; padding: 0;
+           background: transparent; border: none; color: var(--muted); font-size: 9px; line-height: 1; cursor: pointer; }
+  .kstep:hover { background: #262c3a; color: var(--text); }
+  .kstep:active { background: var(--accent); color: #fff; }
+  .kstep.up { border-top-right-radius: 6px; }
+  .kstep.down { border-top: 1px solid var(--border); border-bottom-right-radius: 6px; }
   .period-label { font-weight: 600; }
   .amount { font-variant-numeric: tabular-nums; font-weight: 600; }
   .amount.up { color: var(--green); }
@@ -295,10 +313,17 @@ function renderTable(computed) {
     const realLine = showReal && !isStart ? `<div class="real">real ${money(c.real)}</div>` : "";
     const dirClass = isStart ? "" : (c.amount >= c.prev ? "up" : "down");
     const main = isStart && startMissing() ? "..." : money(c.amount);
+    const kField = (f, val) => `<span class="kbox">` +
+        `<input data-i="${i}" data-f="${f}" type="text" inputmode="numeric" value="${val}">` +
+        `<span class="ksuffix">k</span>` +
+        `<span class="ksteps">` +
+          `<button type="button" class="kstep up" data-i="${i}" data-f="${f}" data-step="1" aria-label="increase">▲</button>` +
+          `<button type="button" class="kstep down" data-i="${i}" data-f="${f}" data-step="-1" aria-label="decrease">▼</button>` +
+        `</span></span>`;
     tr.innerHTML = `
       <td class="period-label">${L}${i}</td>
-      <td>${isStart ? "" : `<input data-i="${i}" data-f="add" type="text" inputmode="decimal" value="${r.add}k">`}</td>
-      <td>${isStart ? "" : `<input data-i="${i}" data-f="withdraw" type="text" inputmode="decimal" value="${r.withdraw}k">`}</td>
+      <td>${isStart ? "" : kField("add", r.add)}</td>
+      <td>${isStart ? "" : kField("withdraw", r.withdraw)}</td>
       <td>${isStart ? "" : `<input data-i="${i}" data-f="rate" type="number" step="0.1" value="${rateVal}">`}</td>
       <td class="amount ${dirClass}">${main}${realLine}</td>
       <td class="row-actions">${isStart ? "" : `<button data-del="${i}" title="Remove">×</button>`}</td>`;
@@ -472,20 +497,30 @@ els.tbody.addEventListener("input", (e) => {
   }
 });
 
-// Re-append the "k" suffix once the user finishes editing an Add/Withdraw cell.
+// Normalise an Add/Withdraw cell to a clean number once editing finishes.
 els.tbody.addEventListener("change", (e) => {
   const t = e.target;
-  if (t.dataset.i !== undefined && (t.dataset.f === "add" || t.dataset.f === "withdraw")) {
-    t.value = (rows[+t.dataset.i][t.dataset.f] || 0) + "k";
+  if (t.tagName === "INPUT" && t.dataset.i !== undefined && (t.dataset.f === "add" || t.dataset.f === "withdraw")) {
+    t.value = rows[+t.dataset.i][t.dataset.f] || 0;
   }
 });
 
 els.tbody.addEventListener("click", (e) => {
-  const del = e.target.dataset.del;
-  if (del !== undefined) {
-    rows.splice(+del, 1);
+  const btn = e.target.closest("button");
+  if (!btn) return;
+  if (btn.dataset.del !== undefined) {
+    rows.splice(+btn.dataset.del, 1);
     els.count.value = rows.length - 1;
     render();
+    return;
+  }
+  if (btn.dataset.step !== undefined) {
+    const i = +btn.dataset.i, f = btn.dataset.f;
+    rows[i][f] = Math.max(0, (rows[i][f] || 0) + +btn.dataset.step);
+    const inp = btn.closest(".kbox").querySelector("input");
+    if (inp) inp.value = rows[i][f];
+    const computed = compute();
+    renderSummary(computed); drawChart(computed); updateAmounts(computed);
   }
 });
 

@@ -100,6 +100,20 @@
   .kstep.down { border-top: 1px solid var(--border); border-bottom-right-radius: 6px; }
   /* dim a field that's still at its default of 0 */
   .kbox.dim input, .kbox.dim .ksuffix { color: #5b6470; }
+  /* header numeric controls with steppers */
+  .hbox { display: inline-flex; align-items: stretch; width: 110px; height: 38px; background: var(--panel-2);
+          border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .hbox:focus-within { border-color: var(--accent); }
+  .hbox input { flex: 1; width: auto; min-width: 0; border: none; background: transparent; color: var(--text);
+                padding: 8px 4px 8px 10px; font-size: 14px; font-family: inherit; border-radius: 0; }
+  .hbox input:hover { border: none; }
+  .hbox input:focus { outline: none; }
+  .hsteps { display: flex; flex-direction: column; border-left: 1px solid var(--border); }
+  .hstep { flex: 1; width: 26px; display: flex; align-items: center; justify-content: center; padding: 0;
+           background: transparent; border: none; color: var(--muted); font-size: 9px; line-height: 1; cursor: pointer; }
+  .hstep:hover { background: #262c3a; color: var(--text); }
+  .hstep:active { background: var(--accent); color: #fff; }
+  .hstep.down { border-top: 1px solid var(--border); }
   .period-label { font-weight: 600; }
   .amount { font-variant-numeric: tabular-nums; font-weight: 600; }
   .amount.up { color: var(--green); }
@@ -137,7 +151,7 @@
   .stat .v.green { color: var(--green); }
   .stat .v.red { color: var(--red); }
   .stat .sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
-  canvas { width: 100%; height: 380px; display: block; }
+  canvas { width: 100%; height: 380px; display: block; cursor: crosshair; }
   .hint { color: var(--muted); font-size: 12px; margin-top: 10px; line-height: 1.5; }
   .chart-legend { display: flex; gap: 18px; margin-top: 8px; font-size: 12px; color: var(--muted); flex-wrap: wrap; }
   .chart-legend span { display: inline-flex; align-items: center; }
@@ -156,26 +170,19 @@
   <div class="controls">
     <div class="field">
       <label for="start">Start (k)</label>
-      <input id="start" type="number" step="10" value="300" />
+      <div class="hbox"><input id="start" type="number" value="300" /><span class="hsteps"><button type="button" class="hstep up" data-target="start" data-step="10" data-min="0" aria-label="increase">▲</button><button type="button" class="hstep down" data-target="start" data-step="-10" data-min="0" aria-label="decrease">▼</button></span></div>
     </div>
     <div class="field">
       <label for="rate">Annual return %</label>
-      <input id="rate" type="number" step="0.1" value="6" />
+      <div class="hbox"><input id="rate" type="number" value="6" /><span class="hsteps"><button type="button" class="hstep up" data-target="rate" data-step="0.5" aria-label="increase">▲</button><button type="button" class="hstep down" data-target="rate" data-step="-0.5" aria-label="decrease">▼</button></span></div>
     </div>
     <div class="field">
       <label for="inflation">Inflation %</label>
-      <input id="inflation" type="number" step="0.1" value="2" />
+      <div class="hbox"><input id="inflation" type="number" value="2" /><span class="hsteps"><button type="button" class="hstep up" data-target="inflation" data-step="0.5" aria-label="increase">▲</button><button type="button" class="hstep down" data-target="inflation" data-step="-0.5" aria-label="decrease">▼</button></span></div>
     </div>
     <div class="field">
-      <label for="period">Period</label>
-      <select id="period">
-        <option value="year" selected>Yearly</option>
-        <option value="month">Monthly</option>
-      </select>
-    </div>
-    <div class="field">
-      <label for="count" id="countLabel">Years</label>
-      <input id="count" type="number" step="1" min="1" max="600" value="20" />
+      <label for="count">Years</label>
+      <div class="hbox"><input id="count" type="number" min="1" max="600" value="20" /><span class="hsteps"><button type="button" class="hstep up" data-target="count" data-step="1" data-min="1" aria-label="increase">▲</button><button type="button" class="hstep down" data-target="count" data-step="-1" data-min="1" aria-label="decrease">▼</button></span></div>
     </div>
     <label class="check"><input id="showReal" type="checkbox" /><span>Adjust for inflation</span></label>
   </div>
@@ -197,7 +204,7 @@
       <tbody id="tbody"></tbody>
     </table>
     <div class="toolbar">
-      <button class="btn" id="addRow">+ Add period</button>
+      <button class="btn" id="addRow">+ Add year</button>
       <button class="btn secondary" id="csv">Export CSV</button>
       <button class="btn secondary" id="reset">Reset</button>
     </div>
@@ -226,9 +233,7 @@ const els = {
   start: document.getElementById("start"),
   rate: document.getElementById("rate"),
   inflation: document.getElementById("inflation"),
-  period: document.getElementById("period"),
   count: document.getElementById("count"),
-  countLabel: document.getElementById("countLabel"),
   showReal: document.getElementById("showReal"),
   tbody: document.getElementById("tbody"),
   addRow: document.getElementById("addRow"),
@@ -255,8 +260,8 @@ function defaultRows(n) {
 }
 function num(v, fallback) { const n = parseFloat(v); return Number.isFinite(n) ? n : fallback; }
 function startMissing() { return !Number.isFinite(parseFloat(els.start.value)); }
-function periodsPerYear() { return els.period.value === "month" ? 12 : 1; }
-function unitLetter() { return els.period.value === "month" ? "M" : "Y"; }
+function periodsPerYear() { return 1; }
+function unitLetter() { return "Y"; }
 
 // ---- Compute -----------------------------------------------------------
 // Rates are entered as ANNUAL %. Per-period growth uses the equivalent
@@ -353,7 +358,21 @@ function renderSummary(computed) {
 }
 
 // ---- Chart (dependency-free canvas) ------------------------------------
-function drawChart(computed) {
+let lastComputed = [];      // remembered for hover redraws
+let chartGeom = null;       // { padL, w, n } for mouse→index hit-testing
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+function drawChart(computed, hover) {
+  lastComputed = computed;
   const canvas = els.chart;
   const dpr = window.devicePixelRatio || 1;
   const cssW = canvas.clientWidth || 600;
@@ -424,20 +443,43 @@ function drawChart(computed) {
 
   ctx.fillStyle = "#4f8cff";
   values.forEach((v, i) => { ctx.beginPath(); ctx.arc(x(i), y(v), 2.5, 0, Math.PI * 2); ctx.fill(); });
+
+  chartGeom = { padL, w, n };
+
+  // hover guide + tooltip
+  if (hover != null && hover >= 0 && hover < n) {
+    const hx = x(hover), hy = y(values[hover]);
+    ctx.strokeStyle = "rgba(231,234,240,0.25)"; ctx.setLineDash([3, 3]); ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(hx, padT); ctx.lineTo(hx, padT + h); ctx.stroke(); ctx.setLineDash([]);
+
+    ctx.lineWidth = 2; ctx.strokeStyle = "#fff";
+    if (showReal) { ctx.fillStyle = "#f0b429"; ctx.beginPath(); ctx.arc(hx, y(reals[hover]), 4, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
+    ctx.fillStyle = "#4f8cff"; ctx.beginPath(); ctx.arc(hx, hy, 4.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+
+    const c = computed[hover];
+    const lines = [L + hover, money(c.amount)];
+    if (showReal) lines.push("real " + money(c.real));
+    ctx.font = "13px -apple-system, sans-serif";
+    const tw = Math.max(...lines.map(s => ctx.measureText(s).width)) + 18;
+    const th = lines.length * 17 + 10;
+    let tx = hx + 14; if (tx + tw > padL + w) tx = hx - 14 - tw;
+    let ty = hy - th - 10; if (ty < padT) ty = hy + 12;
+    ctx.fillStyle = "rgba(20,23,30,0.96)"; ctx.strokeStyle = "#2a2f3a"; ctx.lineWidth = 1;
+    roundRect(ctx, tx, ty, tw, th, 7); ctx.fill(); ctx.stroke();
+    ctx.textAlign = "left";
+    lines.forEach((s, k) => {
+      ctx.fillStyle = k === 0 ? "#8a93a6" : (k === 1 ? "#e7eaf0" : "#f0b429");
+      ctx.font = (k === 1 ? "600 14px" : "12px") + " -apple-system, sans-serif";
+      ctx.fillText(s, tx + 9, ty + 18 + k * 17);
+    });
+  }
 }
 
 // ---- Labels / hint -----------------------------------------------------
 function syncLabels() {
-  const monthly = els.period.value === "month";
-  els.countLabel.textContent = monthly ? "Months" : "Years";
-  els.hPeriod.textContent = monthly ? "Month" : "Year";
-  els.hRate.textContent = monthly ? "Rate (ann.)" : "Rate";
-  els.addRow.textContent = monthly ? "+ Add month" : "+ Add year";
   els.lgRealWrap.style.display = els.showReal.checked ? "" : "none";
-  const unit = monthly ? "month" : "year";
-  els.hint.innerHTML = `Each ${unit}: <em>Amount = previous × (1 + rate) + Add − Withdraw</em>. ` +
-    `Rates are entered as <strong>annual %</strong>${monthly ? " and compounded monthly" : ""}. ` +
-    `Per-row Add, Withdraw and Rate override the defaults.` +
+  els.hint.innerHTML = `Each year: <em>Amount = previous × (1 + rate) + Add − Withdraw</em>. ` +
+    `Per-row Add, Withdraw and Rate override the defaults above.` +
     (els.showReal.checked ? ` <em>Real</em> values are discounted by inflation into today's €.` : "");
 }
 
@@ -545,16 +587,35 @@ els.tbody.addEventListener("click", (e) => {
 
 [els.start, els.rate, els.inflation].forEach(el => el.addEventListener("input", render));
 els.count.addEventListener("input", () => { syncCount(); render(); });
-els.period.addEventListener("change", render);
 els.showReal.addEventListener("change", render);
+// Header stepper buttons adjust their target input and re-render.
+document.querySelector(".controls").addEventListener("click", (e) => {
+  const b = e.target.closest(".hstep");
+  if (!b) return;
+  const inp = document.getElementById(b.dataset.target);
+  let v = Math.round((num(inp.value, 0) + +b.dataset.step) * 100) / 100;
+  if (b.dataset.min !== undefined) v = Math.max(+b.dataset.min, v);
+  inp.value = v;
+  inp.dispatchEvent(new Event("input", { bubbles: true }));
+});
+
 els.addRow.addEventListener("click", () => { rows.push({ add: 0, withdraw: 0, rate: null }); els.count.value = rows.length - 1; render(); });
 els.csv.addEventListener("click", exportCSV);
 els.reset.addEventListener("click", () => {
   els.start.value = 300; els.rate.value = 6; els.inflation.value = 2;
-  els.period.value = "year"; els.count.value = 20; els.showReal.checked = false;
+  els.count.value = 20; els.showReal.checked = false;
   rows = defaultRows(20); render();
 });
 window.addEventListener("resize", render);
+
+// Chart hover: highlight the nearest year and show its amount.
+els.chart.addEventListener("mousemove", (e) => {
+  if (!chartGeom || chartGeom.n < 1) return;
+  const rel = (e.offsetX - chartGeom.padL) / chartGeom.w;
+  const idx = Math.max(0, Math.min(chartGeom.n - 1, Math.round(rel * (chartGeom.n - 1))));
+  drawChart(lastComputed, idx);
+});
+els.chart.addEventListener("mouseleave", () => drawChart(lastComputed, null));
 
 // ---- Init --------------------------------------------------------------
 rows = defaultRows(num(els.count.value, 20));

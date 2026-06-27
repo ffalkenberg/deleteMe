@@ -148,7 +148,18 @@
   .btn:hover { filter: brightness(1.1); }
   .summary { display: flex; gap: 24px; flex-wrap: wrap; margin-bottom: 14px; }
   .stat .k { font-size: 11px; text-transform: uppercase; color: var(--muted); letter-spacing: .04em; }
-  .stat .v { font-size: 21px; font-weight: 600; font-variant-numeric: tabular-nums; margin-top: 2px; }
+  .stat .v { font-size: 21px; font-weight: 600; font-variant-numeric: tabular-nums; margin-top: 2px; position: relative; }
+  /* floating MMORPG-style delta that pops up beside the final amount */
+  .float-delta { position: absolute; left: 50%; bottom: 100%; margin-bottom: 4px; white-space: nowrap;
+                 font-size: 18px; font-weight: 800; pointer-events: none; animation: floatUp 1.15s ease-out forwards; }
+  .float-delta.up { color: var(--green); text-shadow: 0 0 12px rgba(56,193,114,0.8); }
+  .float-delta.down { color: var(--red); text-shadow: 0 0 12px rgba(239,83,80,0.8); }
+  @keyframes floatUp {
+    0%   { opacity: 0; transform: translateX(-50%) translateY(10px) scale(0.6); }
+    18%  { opacity: 1; transform: translateX(-50%) translateY(0) scale(1.3); }
+    45%  { transform: translateX(-50%) translateY(-10px) scale(1); }
+    100% { opacity: 0; transform: translateX(-50%) translateY(-40px) scale(1); }
+  }
   .stat .v.green { color: var(--green); }
   .stat .v.red { color: var(--red); }
   .stat .sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
@@ -178,14 +189,14 @@
       <div class="hbox"><input id="rate" type="number" value="6" /><span class="hsteps"><button type="button" class="hstep up" data-target="rate" data-step="0.5" aria-label="increase">▲</button><button type="button" class="hstep down" data-target="rate" data-step="-0.5" aria-label="decrease">▼</button></span></div>
     </div>
     <div class="field">
-      <label for="inflation">Inflation %</label>
-      <div class="hbox"><input id="inflation" type="number" value="2" /><span class="hsteps"><button type="button" class="hstep up" data-target="inflation" data-step="0.5" aria-label="increase">▲</button><button type="button" class="hstep down" data-target="inflation" data-step="-0.5" aria-label="decrease">▼</button></span></div>
-    </div>
-    <div class="field">
       <label for="count">Years</label>
       <div class="hbox"><input id="count" type="number" min="1" max="600" value="20" /><span class="hsteps"><button type="button" class="hstep up" data-target="count" data-step="1" data-min="1" aria-label="increase">▲</button><button type="button" class="hstep down" data-target="count" data-step="-1" data-min="1" aria-label="decrease">▼</button></span></div>
     </div>
     <label class="check"><input id="showReal" type="checkbox" /><span>Adjust for inflation</span></label>
+    <div class="field" id="inflationField" style="display:none">
+      <label for="inflation">Inflation %</label>
+      <div class="hbox"><input id="inflation" type="number" value="2" /><span class="hsteps"><button type="button" class="hstep up" data-target="inflation" data-step="0.5" aria-label="increase">▲</button><button type="button" class="hstep down" data-target="inflation" data-step="-0.5" aria-label="decrease">▼</button></span></div>
+    </div>
   </div>
 </header>
 
@@ -235,6 +246,7 @@ const els = {
   rate: document.getElementById("rate"),
   inflation: document.getElementById("inflation"),
   count: document.getElementById("count"),
+  inflationField: document.getElementById("inflationField"),
   showReal: document.getElementById("showReal"),
   tbody: document.getElementById("tbody"),
   addRow: document.getElementById("addRow"),
@@ -345,17 +357,29 @@ function renderTable(computed) {
 }
 
 // ---- Summary -----------------------------------------------------------
+let lastFinal = null;       // previous final amount, for the pop-up effect
+
+function spawnFloat(delta) {
+  const el = document.createElement("span");
+  el.className = "float-delta " + (delta >= 0 ? "up" : "down");
+  el.textContent = (delta >= 0 ? "+" : "−") + money(Math.abs(delta));
+  els.sFinal.appendChild(el);
+  setTimeout(() => el.remove(), 1200);
+}
+
 function renderSummary(computed) {
   const last = computed[computed.length - 1];
   const start = num(els.start.value, 0);
   const growth = last.amount - last.contrib;
   els.sFinal.textContent = money(last.amount);
   els.sFinal.className = "v " + (last.amount >= start ? "green" : "red");
-  els.sFinalSub.textContent = els.showReal.checked || num(els.inflation.value, 0) !== 0
-    ? "real " + money(last.real) : "";
+  els.sFinalSub.textContent = els.showReal.checked ? "real " + money(last.real) : "";
   els.sContrib.textContent = money(last.contrib);
   els.sGrowth.textContent = money(growth);
   els.sGrowth.className = "v " + (growth >= 0 ? "green" : "red");
+  // pop a floating delta whenever the final amount changes
+  if (lastFinal !== null && Math.round(last.amount - lastFinal) !== 0) spawnFloat(last.amount - lastFinal);
+  lastFinal = last.amount;
 }
 
 // ---- Chart (dependency-free canvas) ------------------------------------
@@ -478,6 +502,7 @@ function drawChart(computed, hover) {
 
 // ---- Labels / hint -----------------------------------------------------
 function syncLabels() {
+  els.inflationField.style.display = els.showReal.checked ? "" : "none";
   els.lgRealWrap.style.display = els.showReal.checked ? "" : "none";
   els.hint.innerHTML = `Each year: <em>Amount = previous × (1 + rate) + Add − Withdraw</em>. ` +
     `Per-row Add, Withdraw and Rate override the defaults above.` +

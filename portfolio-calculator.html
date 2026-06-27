@@ -106,15 +106,9 @@
   /* drag-to-select multiple fields */
   .sel-box { position: fixed; z-index: 50; background: rgba(79,140,255,0.16); border: 1px solid var(--accent); pointer-events: none; border-radius: 2px; }
   .kbox.sel { outline: 2px solid var(--accent); outline-offset: 1px; }
-  .sel-apply { position: fixed; z-index: 60; display: flex; align-items: center; gap: 8px; background: var(--panel-2);
-               border: 1px solid var(--border); border-radius: 9px; padding: 8px 10px; box-shadow: 0 10px 28px rgba(0,0,0,0.55); }
-  .sel-apply .sa-label { font-size: 12px; color: var(--muted); white-space: nowrap; }
-  .sel-apply .sa-input { width: 72px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
-                         color: var(--text); padding: 6px 8px; font-size: 14px; }
-  .sel-apply .sa-input:focus { outline: none; border-color: var(--accent); }
-  .sel-apply .sa-btn { background: var(--accent); color: #fff; border: none; border-radius: 6px; padding: 6px 12px;
-                       font-size: 13px; font-weight: 500; cursor: pointer; }
-  .sel-apply .sa-btn:hover { filter: brightness(1.1); }
+  /* don't let dragging text-select the rows; inputs/start cell stay editable */
+  .table-wrap { -webkit-user-select: none; user-select: none; }
+  .table-wrap input, .editable-start { -webkit-user-select: text; user-select: text; }
   /* header numeric controls with steppers */
   .hbox { display: inline-flex; align-items: stretch; width: 110px; height: 38px; background: var(--panel-2);
           border: 1px solid var(--border); border-radius: 8px; }
@@ -593,11 +587,19 @@ els.tbody.addEventListener("input", (e) => {
   }
   if (t.dataset.i !== undefined) {
     const i = +t.dataset.i, f = t.dataset.f;
-    rows[i][f] = num(t.value, 0);
-    if (f === "add" || f === "withdraw") {
-      const box = t.closest(".kbox");
-      if (box) box.classList.toggle("dim", rows[i][f] === 0);
-    }
+    const raw = num(t.value, 0);
+    // if this field is part of an active multi-selection, fill the whole group
+    const group = (selected.length > 1 && selected.some(s => s.i === i && s.f === f)) ? selected : [{ i, f }];
+    group.forEach((s) => {
+      let v = raw;
+      if ((s.f === "add" || s.f === "withdraw") && v < 0) v = 0;
+      rows[s.i][s.f] = v;
+      const inp = fieldInput(s);
+      if (inp) {
+        if (!(s.i === i && s.f === f)) inp.value = v;            // mirror to the others (not the one being typed)
+        if (s.f === "add" || s.f === "withdraw") inp.closest(".kbox").classList.toggle("dim", v === 0);
+      }
+    });
     const computed = compute();
     renderSummary(computed);
     drawChart(computed);
@@ -689,44 +691,18 @@ const selBox = document.createElement("div");
 selBox.className = "sel-box"; selBox.style.display = "none";
 document.body.appendChild(selBox);
 
-const applyBox = document.createElement("div");
-applyBox.className = "sel-apply"; applyBox.style.display = "none";
-applyBox.innerHTML = `<span class="sa-label"></span><input type="text" inputmode="decimal" class="sa-input"><button type="button" class="sa-btn">Apply</button>`;
-document.body.appendChild(applyBox);
-const saInput = applyBox.querySelector(".sa-input");
-const saLabel = applyBox.querySelector(".sa-label");
-const saBtn = applyBox.querySelector(".sa-btn");
-
 let selAnchor = null;      // {x,y} pending drag origin
 let selecting = false;
-let selected = [];         // [{i, f}]
+let selected = [];         // [{i, f}] — persists after the drag for group typing
 
-function clearHighlight() { els.tbody.querySelectorAll(".kbox.sel").forEach(b => b.classList.remove("sel")); }
-function closeApply() { applyBox.style.display = "none"; clearHighlight(); selected = []; }
-
-function applyValue() {
-  const v = parseFloat(saInput.value);
-  if (Number.isFinite(v)) {
-    selected.forEach(({ i, f }) => {
-      let val = Math.round(v * 100) / 100;
-      if ((f === "add" || f === "withdraw") && val < 0) val = 0;
-      rows[i][f] = val;
-    });
-    render();
-  }
-  closeApply();
-}
-saBtn.addEventListener("click", applyValue);
-saInput.addEventListener("keydown", (e) => {
-  if (e.key === "Enter") { e.preventDefault(); applyValue(); }
-  else if (e.key === "Escape") { closeApply(); }
-});
+function clearSelection() { els.tbody.querySelectorAll(".kbox.sel").forEach(b => b.classList.remove("sel")); selected = []; }
+function fieldInput(s) { return els.tbody.querySelector(`input[data-i="${s.i}"][data-f="${s.f}"]`); }
 
 tableWrap.addEventListener("mousedown", (e) => {
   if (e.button !== 0) return;
-  if (applyBox.style.display !== "none") closeApply();
   // let buttons, the editable start cell, and the delete × work normally
   if (e.target.closest(".kstep") || e.target.closest(".row-actions") || e.target.closest(".editable-start")) return;
+  clearSelection();
   selAnchor = { x: e.clientX, y: e.clientY };
   selecting = false;
 });
@@ -738,7 +714,6 @@ document.addEventListener("mousemove", (e) => {
     selecting = true;
     if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
     selBox.style.display = "block";
-    document.body.style.userSelect = "none";
   }
   const x = Math.min(e.clientX, selAnchor.x), y = Math.min(e.clientY, selAnchor.y);
   const w = Math.abs(e.clientX - selAnchor.x), h = Math.abs(e.clientY - selAnchor.y);
@@ -756,28 +731,23 @@ document.addEventListener("mousemove", (e) => {
   e.preventDefault();
 });
 
-document.addEventListener("mouseup", (e) => {
+document.addEventListener("mouseup", () => {
   if (!selAnchor) return;
   const wasSelecting = selecting;
   selAnchor = null; selecting = false;
-  document.body.style.userSelect = "";
   selBox.style.display = "none";
   if (wasSelecting && selected.length) {
-    saLabel.textContent = `Set ${selected.length} field${selected.length > 1 ? "s" : ""} to:`;
-    applyBox.style.display = "flex";
-    applyBox.style.left = Math.min(e.clientX, window.innerWidth - 220) + "px";
-    applyBox.style.top = (e.clientY + 10) + "px";
-    saInput.value = "";
-    setTimeout(() => saInput.focus(), 0);
+    // drop a caret into the first selected field; typing fills the whole group
+    const inp = fieldInput(selected[0]);
+    if (inp) { inp.focus(); inp.select(); }
   } else {
-    clearHighlight(); selected = [];
+    clearSelection();
   }
 });
 
-// click outside the apply popup closes it
-document.addEventListener("mousedown", (e) => {
-  if (applyBox.style.display !== "none" && !applyBox.contains(e.target) && !tableWrap.contains(e.target)) closeApply();
-});
+// click outside the table clears any active selection
+document.addEventListener("mousedown", (e) => { if (selected.length && !tableWrap.contains(e.target)) clearSelection(); });
+els.tbody.addEventListener("keydown", (e) => { if (e.key === "Escape" && selected.length) { clearSelection(); e.target.blur(); } });
 
 // ---- Init --------------------------------------------------------------
 rows = defaultRows(num(els.count.value, 20));

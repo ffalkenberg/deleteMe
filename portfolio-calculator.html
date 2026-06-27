@@ -125,14 +125,14 @@
   .delta.down { color: var(--red); }
   .row-actions button {
     background: transparent;
-    border: 1px solid var(--border);
+    border: none;
     color: var(--muted);
-    border-radius: 6px;
     width: 24px; height: 24px;
     cursor: pointer;
     line-height: 1;
+    font-size: 16px;
   }
-  .row-actions button:hover { color: var(--text); border-color: var(--accent); }
+  .row-actions button:hover { color: var(--red); }
   .toolbar { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
   .btn {
     background: var(--accent);
@@ -351,7 +351,7 @@ function renderTable(computed) {
       <td>${isStart ? "" : kField("withdraw", r.withdraw, "k", 1, 0)}</td>
       <td>${isStart ? "" : kField("rate", rateVal, "%", 0.5, null)}</td>
       <td class="amount ${dirClass}">${main}${realLine}</td>
-      <td class="row-actions">${isStart ? "" : `<button data-del="${i}" title="Remove">×</button>`}</td>`;
+      <td class="row-actions">${i === rows.length - 1 && !isStart ? `<button data-del="${i}" title="Remove last year">×</button>` : ""}</td>`;
     els.tbody.appendChild(tr);
   });
 }

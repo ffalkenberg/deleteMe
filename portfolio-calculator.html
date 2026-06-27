@@ -56,7 +56,7 @@
   .field input:focus, .field select:focus { outline: none; border-color: var(--accent); }
   .check { display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; padding-bottom: 8px; }
   .check input { width: 16px; height: 16px; accent-color: var(--accent); }
-  .check span { font-size: 13px; color: var(--text); }
+  .check span { font-size: 13px; color: var(--muted); }
   .layout { display: grid; grid-template-columns: 1.1fr 1fr; gap: 0; }
   @media (max-width: 1000px) { .layout { grid-template-columns: 1fr; } }
   .table-wrap { padding: 18px 24px; }
@@ -449,8 +449,8 @@ function drawChart(computed, hover) {
     ctx.strokeStyle = "#2a2f3a"; ctx.globalAlpha = 0.5;
     ctx.beginPath(); ctx.moveTo(padL, yy); ctx.lineTo(padL + w, yy); ctx.stroke();
     ctx.globalAlpha = 1;
-    ctx.fillStyle = "#8a93a6"; ctx.textAlign = "right";
-    ctx.fillText(shortMoney(v), padL - 8, yy + 3);
+    ctx.fillStyle = "#8a93a6"; ctx.textAlign = "left";
+    ctx.fillText(shortMoney(v), 0, yy + 3);
   }
   if (minV < 0 && maxV > 0) {
     ctx.strokeStyle = "#3a4150";
@@ -633,16 +633,22 @@ els.tbody.addEventListener("click", (e) => {
     return;
   }
   if (btn.dataset.step !== undefined) {
-    const i = +btn.dataset.i, f = btn.dataset.f;
-    let cur = rows[i][f];
-    if (cur === null || cur === undefined) cur = (f === "rate") ? num(els.rate.value, 0) : 0;
-    let next = Math.round((cur + +btn.dataset.step) * 100) / 100;
-    if (btn.dataset.min !== undefined) next = Math.max(+btn.dataset.min, next);
-    rows[i][f] = next;
-    const box = btn.closest(".kbox");
-    const inp = box.querySelector("input");
-    if (inp) inp.value = next;
-    if (f === "add" || f === "withdraw") box.classList.toggle("dim", next === 0);
+    const ci = +btn.dataset.i, cf = btn.dataset.f, delta = +btn.dataset.step;
+    // if the clicked field is part of an active selection, step the whole group
+    const targets = (selected.length > 1 && selected.some(s => s.i === ci && s.f === cf)) ? selected : [{ i: ci, f: cf }];
+    targets.forEach(({ i, f }) => {
+      let cur = rows[i][f];
+      if (cur === null || cur === undefined) cur = (f === "rate") ? num(els.rate.value, 0) : 0;
+      let next = Math.round((cur + delta) * 100) / 100;
+      if (f === "add" || f === "withdraw") next = Math.max(0, next);
+      rows[i][f] = next;
+      const inp = fieldInput({ i, f });
+      if (inp) {
+        inp.value = next;
+        if (f === "add" || f === "withdraw") inp.closest(".kbox").classList.toggle("dim", next === 0);
+      }
+    });
+    groupBuffer = "";
     const computed = compute();
     renderSummary(computed); drawChart(computed); updateAmounts(computed);
   }

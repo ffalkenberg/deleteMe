@@ -722,8 +722,8 @@ document.addEventListener("keydown", (e) => {
 
 tableWrap.addEventListener("mousedown", (e) => {
   if (e.button !== 0) return;
-  // let buttons, the editable start cell, and the delete × work normally
-  if (e.target.closest(".kstep") || e.target.closest(".row-actions") || e.target.closest(".editable-start")) return;
+  // let steppers and the delete × work normally
+  if (e.target.closest(".kstep") || e.target.closest(".row-actions")) return;
   clearSelection();
   selAnchor = { x: e.clientX, y: e.clientY };
   selecting = false;
@@ -735,8 +735,12 @@ document.addEventListener("mousemove", (e) => {
   if (!selecting) {
     selecting = true;
     if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    document.body.style.userSelect = "none";              // stop native text-selection mid-drag
+    document.body.style.webkitUserSelect = "none";
     selBox.style.display = "block";
   }
+  const winSel = window.getSelection && window.getSelection();
+  if (winSel) winSel.removeAllRanges();                    // clear any selection that already started
   const x = Math.min(e.clientX, selAnchor.x), y = Math.min(e.clientY, selAnchor.y);
   const w = Math.abs(e.clientX - selAnchor.x), h = Math.abs(e.clientY - selAnchor.y);
   selBox.style.left = x + "px"; selBox.style.top = y + "px";
@@ -758,6 +762,8 @@ document.addEventListener("mouseup", () => {
   const wasSelecting = selecting;
   selAnchor = null; selecting = false;
   selBox.style.display = "none";
+  document.body.style.userSelect = "";
+  document.body.style.webkitUserSelect = "";
   if (wasSelecting && selected.length) {
     groupBuffer = "";          // next keystrokes fill the whole group (nothing is "marked")
   } else {

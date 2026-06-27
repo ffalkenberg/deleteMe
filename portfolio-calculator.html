@@ -297,9 +297,9 @@ function renderTable(computed) {
     const main = isStart && startMissing() ? "..." : money(c.amount);
     tr.innerHTML = `
       <td class="period-label">${L}${i}</td>
-      <td>${isStart ? "—" : `<input data-i="${i}" data-f="add" type="text" inputmode="decimal" value="${r.add}k">`}</td>
-      <td>${isStart ? "—" : `<input data-i="${i}" data-f="withdraw" type="text" inputmode="decimal" value="${r.withdraw}k">`}</td>
-      <td>${isStart ? "—" : `<input data-i="${i}" data-f="rate" type="number" step="0.1" value="${rateVal}">`}</td>
+      <td>${isStart ? "" : `<input data-i="${i}" data-f="add" type="text" inputmode="decimal" value="${r.add}k">`}</td>
+      <td>${isStart ? "" : `<input data-i="${i}" data-f="withdraw" type="text" inputmode="decimal" value="${r.withdraw}k">`}</td>
+      <td>${isStart ? "" : `<input data-i="${i}" data-f="rate" type="number" step="0.1" value="${rateVal}">`}</td>
       <td class="amount ${dirClass}">${main}${realLine}</td>
       <td class="row-actions">${isStart ? "" : `<button data-del="${i}" title="Remove">×</button>`}</td>`;
     els.tbody.appendChild(tr);

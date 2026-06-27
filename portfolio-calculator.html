@@ -55,7 +55,8 @@
   .check span { font-size: 13px; color: var(--text); }
   .layout { display: grid; grid-template-columns: 1.1fr 1fr; gap: 0; }
   @media (max-width: 1000px) { .layout { grid-template-columns: 1fr; } }
-  .table-wrap { padding: 18px 24px; overflow-x: auto; border-right: 1px solid var(--border); max-height: 78vh; }
+  .table-wrap { padding: 18px 24px; border-right: 1px solid var(--border); }
+  .table-scroll { overflow: auto; max-height: 72vh; }
   .chart-wrap { padding: 18px 24px; position: sticky; top: 0; align-self: start; }
   table { border-collapse: collapse; width: 100%; min-width: 780px; }
   th, td { padding: 8px 10px; text-align: right; border-bottom: 1px solid var(--border); white-space: nowrap; }
@@ -213,6 +214,7 @@
 
 <div class="layout">
   <div class="table-wrap">
+    <div class="table-scroll">
     <table>
       <thead>
         <tr>
@@ -226,6 +228,7 @@
       </thead>
       <tbody id="tbody"></tbody>
     </table>
+    </div>
     <div class="toolbar">
       <button class="btn" id="addRow">+ Add year</button>
       <button class="btn secondary" id="csv">Export CSV</button>

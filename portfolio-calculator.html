@@ -206,7 +206,7 @@
     </div>
     <div class="field">
       <label for="count">Years</label>
-      <div class="hbox"><input id="count" type="number" min="1" max="600" value="20" /><span class="hsteps"><button type="button" class="hstep up" data-target="count" data-step="1" data-min="1" aria-label="increase">▲</button><button type="button" class="hstep down" data-target="count" data-step="-1" data-min="1" aria-label="decrease">▼</button></span></div>
+      <div class="hbox"><input id="count" type="number" min="0" max="600" value="20" /><span class="hsteps"><button type="button" class="hstep up" data-target="count" data-step="1" data-min="0" aria-label="increase">▲</button><button type="button" class="hstep down" data-target="count" data-step="-1" data-min="0" aria-label="decrease">▼</button></span></div>
     </div>
     <div class="field" id="inflationField" style="display:none">
       <label for="inflation">Inflation %</label>
@@ -558,7 +558,7 @@ function render() {
 }
 
 function syncCount() {
-  const target = Math.max(1, Math.min(600, Math.round(num(els.count.value, 20))));
+  const target = Math.max(0, Math.min(600, Math.round(num(els.count.value, 20))));
   while (rows.length - 1 < target) rows.push({ add: 0, withdraw: 0, rate: null });
   while (rows.length - 1 > target) rows.pop();
 }

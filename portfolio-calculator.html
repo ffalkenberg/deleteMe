@@ -82,7 +82,8 @@
   input[type=number] { -moz-appearance: textfield; appearance: textfield; }
   .period-label { font-weight: 600; }
   .amount { font-variant-numeric: tabular-nums; font-weight: 600; }
-  .amount.neg { color: var(--red); }
+  .amount.up { color: var(--green); }
+  .amount.down { color: var(--red); }
   .real { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
   .delta { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
   .delta.up { color: var(--green); }
@@ -233,6 +234,7 @@ function defaultRows(n) {
   return out;
 }
 function num(v, fallback) { const n = parseFloat(v); return Number.isFinite(n) ? n : fallback; }
+function startMissing() { return !Number.isFinite(parseFloat(els.start.value)); }
 function periodsPerYear() { return els.period.value === "month" ? 12 : 1; }
 function unitLetter() { return els.period.value === "month" ? "M" : "Y"; }
 
@@ -291,14 +293,14 @@ function renderTable(computed) {
     const isStart = i === 0;
     const rateVal = r.rate === null ? defAnnual : r.rate;
     const realLine = showReal && !isStart ? `<div class="real">real ${money(c.real)}</div>` : "";
-    const deltaLine = isStart ? "" :
-      `<div class="delta ${c.amount - c.prev >= 0 ? "up" : "down"}">${c.amount - c.prev >= 0 ? "▲" : "▼"} ${money(Math.abs(c.amount - c.prev))}</div>`;
+    const dirClass = isStart ? "" : (c.amount >= c.prev ? "up" : "down");
+    const main = isStart && startMissing() ? "..." : money(c.amount);
     tr.innerHTML = `
       <td class="period-label">${L}${i}</td>
       <td>${isStart ? "—" : `<input data-i="${i}" data-f="add" type="text" inputmode="decimal" value="${r.add}k">`}</td>
       <td>${isStart ? "—" : `<input data-i="${i}" data-f="withdraw" type="text" inputmode="decimal" value="${r.withdraw}k">`}</td>
       <td>${isStart ? "—" : `<input data-i="${i}" data-f="rate" type="number" step="0.1" value="${rateVal}">`}</td>
-      <td class="amount ${c.amount < 0 ? "neg" : ""}">${money(c.amount)}${deltaLine}${realLine}</td>
+      <td class="amount ${dirClass}">${main}${realLine}</td>
       <td class="row-actions">${isStart ? "" : `<button data-del="${i}" title="Remove">×</button>`}</td>`;
     els.tbody.appendChild(tr);
   });
@@ -451,11 +453,10 @@ function updateAmounts(computed) {
   els.tbody.querySelectorAll("tr").forEach((tr, i) => {
     const c = computed[i];
     const cell = tr.children[4];
-    if (i === 0) { cell.textContent = money(c.amount); return; }
-    const up = c.amount - c.prev >= 0;
+    if (i === 0) { cell.className = "amount"; cell.textContent = startMissing() ? "..." : money(c.amount); return; }
     const realLine = showReal ? `<div class="real">real ${money(c.real)}</div>` : "";
-    cell.className = "amount " + (c.amount < 0 ? "neg" : "");
-    cell.innerHTML = `${money(c.amount)}<div class="delta ${up ? "up" : "down"}">${up ? "▲" : "▼"} ${money(Math.abs(c.amount - c.prev))}</div>${realLine}`;
+    cell.className = "amount " + (c.amount >= c.prev ? "up" : "down");
+    cell.innerHTML = `${money(c.amount)}${realLine}`;
   });
 }
 

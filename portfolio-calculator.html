@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Portfolio Growth Calculator</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #171a21;
+    --panel-2: #1d212b;
+    --border: #2a2f3a;
+    --text: #e7eaf0;
+    --muted: #8a93a6;
+    --accent: #4f8cff;
+    --green: #38c172;
+    --red: #ef5350;
+    --row-alt: #14171e;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+  }
+  header {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 24px;
+  }
+  header h1 { margin: 0; font-size: 20px; font-weight: 600; }
+  header p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+  .controls { display: flex; flex-wrap: wrap; gap: 18px; margin-left: auto; }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field label { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  .field input {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 8px 10px;
+    width: 120px;
+    font-size: 14px;
+  }
+  .field input:focus { outline: none; border-color: var(--accent); }
+  .layout { display: grid; grid-template-columns: 1.1fr 1fr; gap: 0; }
+  @media (max-width: 1000px) { .layout { grid-template-columns: 1fr; } }
+  .table-wrap { padding: 18px 24px; overflow-x: auto; border-right: 1px solid var(--border); }
+  .chart-wrap { padding: 18px 24px; }
+  table { border-collapse: collapse; width: 100%; min-width: 560px; }
+  th, td { padding: 8px 10px; text-align: right; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  th { color: var(--muted); font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: .03em; }
+  th:first-child, td:first-child { text-align: left; }
+  tr:nth-child(even) td { background: var(--row-alt); }
+  td input {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text);
+    border-radius: 6px;
+    padding: 5px 7px;
+    width: 90px;
+    text-align: right;
+    font-size: 14px;
+    font-family: inherit;
+  }
+  td input:hover { border-color: var(--border); }
+  td input:focus { outline: none; border-color: var(--accent); background: var(--panel-2); }
+  .year-label { font-weight: 600; }
+  .amount { font-variant-numeric: tabular-nums; font-weight: 600; }
+  .amount.neg { color: var(--red); }
+  .delta { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .delta.up { color: var(--green); }
+  .delta.down { color: var(--red); }
+  .row-actions button {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    border-radius: 6px;
+    width: 24px; height: 24px;
+    cursor: pointer;
+    line-height: 1;
+  }
+  .row-actions button:hover { color: var(--text); border-color: var(--accent); }
+  .toolbar { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+  .btn {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 9px 16px;
+    font-size: 14px;
+    cursor: pointer;
+    font-weight: 500;
+  }
+  .btn.secondary { background: var(--panel-2); color: var(--text); border: 1px solid var(--border); }
+  .btn:hover { filter: brightness(1.1); }
+  .summary { display: flex; gap: 28px; flex-wrap: wrap; margin-bottom: 14px; }
+  .stat .k { font-size: 11px; text-transform: uppercase; color: var(--muted); letter-spacing: .04em; }
+  .stat .v { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; margin-top: 2px; }
+  .stat .v.green { color: var(--green); }
+  .stat .v.red { color: var(--red); }
+  canvas { width: 100%; height: 380px; display: block; }
+  .hint { color: var(--muted); font-size: 12px; margin-top: 10px; }
+  .chart-legend { display: flex; gap: 18px; margin-top: 8px; font-size: 12px; color: var(--muted); }
+  .chart-legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
+  .lg-value::before { background: var(--accent); }
+  .lg-contrib::before { background: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Portfolio Growth Calculator</h1>
+    <p>Edit any cell — the table and chart update in real time.</p>
+  </div>
+  <div class="controls">
+    <div class="field">
+      <label for="start">Start amount</label>
+      <input id="start" type="number" step="1000" value="300000" />
+    </div>
+    <div class="field">
+      <label for="rate">Default rate %</label>
+      <input id="rate" type="number" step="0.1" value="6" />
+    </div>
+    <div class="field">
+      <label for="years">Years</label>
+      <input id="years" type="number" step="1" min="1" max="100" value="20" />
+    </div>
+  </div>
+</header>
+
+<div class="layout">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Year</th>
+          <th>Year #</th>
+          <th>Add</th>
+          <th>Withdraw</th>
+          <th>Rate</th>
+          <th>Amount</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+    <div class="toolbar">
+      <button class="btn" id="addRow">+ Add year</button>
+      <button class="btn secondary" id="reset">Reset</button>
+    </div>
+    <p class="hint">Each year: <em>Amount = previous × (1 + rate) + Add − Withdraw</em>. Per-row Add, Withdraw and Rate override the defaults.</p>
+  </div>
+
+  <div class="chart-wrap">
+    <div class="summary">
+      <div class="stat"><div class="k">Final amount</div><div class="v" id="s-final">—</div></div>
+      <div class="stat"><div class="k">Total contributed</div><div class="v" id="s-contrib">—</div></div>
+      <div class="stat"><div class="k">Total growth</div><div class="v" id="s-growth">—</div></div>
+    </div>
+    <canvas id="chart"></canvas>
+    <div class="chart-legend">
+      <span class="lg-value">Portfolio value</span>
+      <span class="lg-contrib">Net contributions</span>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+// ---- State -------------------------------------------------------------
+// Each row: { add, withdraw, rate }  (rate is a percent number, e.g. 6)
+// null on a field means "use the default control value".
+const els = {
+  start: document.getElementById("start"),
+  rate: document.getElementById("rate"),
+  years: document.getElementById("years"),
+  tbody: document.getElementById("tbody"),
+  addRow: document.getElementById("addRow"),
+  reset: document.getElementById("reset"),
+  chart: document.getElementById("chart"),
+  sFinal: document.getElementById("s-final"),
+  sContrib: document.getElementById("s-contrib"),
+  sGrowth: document.getElementById("s-growth"),
+};
+
+let rows = []; // index 0 == Y0 (starting year, no add/withdraw/rate applied)
+
+function defaultRows(n) {
+  const out = [];
+  for (let i = 0; i <= n; i++) out.push({ add: 0, withdraw: 0, rate: null });
+  return out;
+}
+
+function num(v, fallback) {
+  const n = parseFloat(v);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+// ---- Compute -----------------------------------------------------------
+function compute() {
+  const start = num(els.start.value, 0);
+  const defRate = num(els.rate.value, 0);
+  const result = [];
+  let amount = start;
+  let contributions = start;
+
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    if (i === 0) {
+      amount = start;
+      result.push({ amount, contrib: contributions, growthThisYear: 0, prev: start });
+      continue;
+    }
+    const rate = (r.rate === null ? defRate : r.rate) / 100;
+    const add = r.add || 0;
+    const withdraw = r.withdraw || 0;
+    const prev = amount;
+    const growthThisYear = prev * rate;
+    amount = prev + growthThisYear + add - withdraw;
+    contributions += add - withdraw;
+    result.push({ amount, contrib: contributions, growthThisYear, prev });
+  }
+  return result;
+}
+
+// ---- Format ------------------------------------------------------------
+const fmt0 = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
+function money(v) {
+  const sign = v < 0 ? "-" : "";
+  return sign + "€" + fmt0.format(Math.abs(Math.round(v)));
+}
+
+// ---- Render table ------------------------------------------------------
+function renderTable(computed) {
+  const defRate = num(els.rate.value, 0);
+  els.tbody.innerHTML = "";
+  rows.forEach((r, i) => {
+    const c = computed[i];
+    const tr = document.createElement("tr");
+
+    const isStart = i === 0;
+    const rateVal = r.rate === null ? defRate : r.rate;
+
+    tr.innerHTML = `
+      <td class="year-label">Y${i}</td>
+      <td>${i}</td>
+      <td>${isStart ? "—" : `<input data-i="${i}" data-f="add" type="number" step="1000" value="${r.add}">`}</td>
+      <td>${isStart ? "—" : `<input data-i="${i}" data-f="withdraw" type="number" step="1000" value="${r.withdraw}">`}</td>
+      <td>${isStart ? "—" : `<input data-i="${i}" data-f="rate" type="number" step="0.1" value="${rateVal}">`}</td>
+      <td class="amount ${c.amount < 0 ? "neg" : ""}">
+        ${money(c.amount)}
+        ${isStart ? "" : `<div class="delta ${c.amount - c.prev >= 0 ? "up" : "down"}">${c.amount - c.prev >= 0 ? "▲" : "▼"} ${money(Math.abs(c.amount - c.prev))}</div>`}
+      </td>
+      <td class="row-actions">${isStart ? "" : `<button data-del="${i}" title="Remove year">×</button>`}</td>
+    `;
+    els.tbody.appendChild(tr);
+  });
+}
+
+// ---- Summary -----------------------------------------------------------
+function renderSummary(computed) {
+  const last = computed[computed.length - 1];
+  const start = num(els.start.value, 0);
+  const growth = last.amount - last.contrib;
+  els.sFinal.textContent = money(last.amount);
+  els.sFinal.className = "v " + (last.amount >= start ? "green" : "red");
+  els.sContrib.textContent = money(last.contrib);
+  els.sGrowth.textContent = money(growth);
+  els.sGrowth.className = "v " + (growth >= 0 ? "green" : "red");
+}
+
+// ---- Chart (dependency-free canvas) ------------------------------------
+function drawChart(computed) {
+  const canvas = els.chart;
+  const dpr = window.devicePixelRatio || 1;
+  const cssW = canvas.clientWidth || 600;
+  const cssH = canvas.clientHeight || 380;
+  canvas.width = cssW * dpr;
+  canvas.height = cssH * dpr;
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, cssW, cssH);
+
+  const padL = 64, padR = 16, padT = 16, padB = 28;
+  const w = cssW - padL - padR;
+  const h = cssH - padT - padB;
+
+  const values = computed.map(c => c.amount);
+  const contribs = computed.map(c => c.contrib);
+  const all = values.concat(contribs);
+  let maxV = Math.max(...all, 0);
+  let minV = Math.min(...all, 0);
+  if (maxV === minV) maxV = minV + 1;
+  // pad the range a touch
+  const range = maxV - minV;
+  maxV += range * 0.05;
+  minV -= range * 0.05;
+
+  const n = computed.length;
+  const x = i => padL + (n === 1 ? w / 2 : (i / (n - 1)) * w);
+  const y = v => padT + h - ((v - minV) / (maxV - minV)) * h;
+
+  // grid + y labels
+  ctx.strokeStyle = "#2a2f3a";
+  ctx.fillStyle = "#8a93a6";
+  ctx.font = "11px -apple-system, sans-serif";
+  ctx.lineWidth = 1;
+  const ticks = 5;
+  for (let t = 0; t <= ticks; t++) {
+    const v = minV + (t / ticks) * (maxV - minV);
+    const yy = y(v);
+    ctx.beginPath();
+    ctx.moveTo(padL, yy);
+    ctx.lineTo(padL + w, yy);
+    ctx.globalAlpha = 0.5;
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.textAlign = "right";
+    ctx.fillText(shortMoney(v), padL - 8, yy + 3);
+  }
+
+  // zero line emphasis
+  if (minV < 0 && maxV > 0) {
+    ctx.strokeStyle = "#3a4150";
+    ctx.beginPath();
+    ctx.moveTo(padL, y(0));
+    ctx.lineTo(padL + w, y(0));
+    ctx.stroke();
+  }
+
+  // x labels (sparse)
+  ctx.fillStyle = "#8a93a6";
+  ctx.textAlign = "center";
+  const step = Math.max(1, Math.ceil(n / 12));
+  for (let i = 0; i < n; i += step) {
+    ctx.fillText("Y" + i, x(i), padT + h + 18);
+  }
+
+  // contributions line (muted, dashed)
+  ctx.setLineDash([4, 4]);
+  ctx.strokeStyle = "#8a93a6";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  contribs.forEach((v, i) => { i ? ctx.lineTo(x(i), y(v)) : ctx.moveTo(x(i), y(v)); });
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // value area fill
+  const grad = ctx.createLinearGradient(0, padT, 0, padT + h);
+  grad.addColorStop(0, "rgba(79,140,255,0.35)");
+  grad.addColorStop(1, "rgba(79,140,255,0.02)");
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  values.forEach((v, i) => { i ? ctx.lineTo(x(i), y(v)) : ctx.moveTo(x(i), y(v)); });
+  ctx.lineTo(x(n - 1), y(minV));
+  ctx.lineTo(x(0), y(minV));
+  ctx.closePath();
+  ctx.fill();
+
+  // value line
+  ctx.strokeStyle = "#4f8cff";
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  values.forEach((v, i) => { i ? ctx.lineTo(x(i), y(v)) : ctx.moveTo(x(i), y(v)); });
+  ctx.stroke();
+
+  // points
+  ctx.fillStyle = "#4f8cff";
+  values.forEach((v, i) => {
+    ctx.beginPath();
+    ctx.arc(x(i), y(v), 2.5, 0, Math.PI * 2);
+    ctx.fill();
+  });
+}
+
+function shortMoney(v) {
+  const a = Math.abs(v);
+  const sign = v < 0 ? "-" : "";
+  if (a >= 1e6) return sign + "€" + (v / 1e6).toFixed(1).replace("-", "") + "M";
+  if (a >= 1e3) return sign + "€" + Math.round(a / 1e3) + "k";
+  return sign + "€" + Math.round(a);
+}
+
+// ---- Orchestration -----------------------------------------------------
+function render() {
+  const computed = compute();
+  renderTable(computed);
+  renderSummary(computed);
+  drawChart(computed);
+}
+
+function syncYears() {
+  const target = Math.max(1, Math.min(100, Math.round(num(els.years.value, 20))));
+  // rows length should be target + 1 (Y0..Ytarget)
+  while (rows.length - 1 < target) rows.push({ add: 0, withdraw: 0, rate: null });
+  while (rows.length - 1 > target) rows.pop();
+}
+
+// ---- Events ------------------------------------------------------------
+els.tbody.addEventListener("input", (e) => {
+  const t = e.target;
+  if (t.dataset.i !== undefined) {
+    const i = +t.dataset.i;
+    const f = t.dataset.f;
+    rows[i][f] = num(t.value, 0);
+    // recompute without rebuilding the table (keeps focus)
+    const computed = compute();
+    renderSummary(computed);
+    drawChart(computed);
+    // update only the amount cells
+    updateAmounts(computed);
+  }
+});
+
+function updateAmounts(computed) {
+  const trs = els.tbody.querySelectorAll("tr");
+  trs.forEach((tr, i) => {
+    const c = computed[i];
+    const cell = tr.children[5];
+    if (i === 0) { cell.textContent = money(c.amount); return; }
+    const up = c.amount - c.prev >= 0;
+    cell.className = "amount " + (c.amount < 0 ? "neg" : "");
+    cell.innerHTML = `${money(c.amount)}<div class="delta ${up ? "up" : "down"}">${up ? "▲" : "▼"} ${money(Math.abs(c.amount - c.prev))}</div>`;
+  });
+}
+
+els.tbody.addEventListener("click", (e) => {
+  const del = e.target.dataset.del;
+  if (del !== undefined) {
+    rows.splice(+del, 1);
+    els.years.value = rows.length - 1;
+    render();
+  }
+});
+
+[els.start, els.rate].forEach(el => el.addEventListener("input", render));
+els.years.addEventListener("input", () => { syncYears(); render(); });
+
+els.addRow.addEventListener("click", () => {
+  rows.push({ add: 0, withdraw: 0, rate: null });
+  els.years.value = rows.length - 1;
+  render();
+});
+
+els.reset.addEventListener("click", () => {
+  els.start.value = 300000;
+  els.rate.value = 6;
+  els.years.value = 20;
+  rows = defaultRows(20);
+  render();
+});
+
+window.addEventListener("resize", render);
+
+// ---- Init --------------------------------------------------------------
+rows = defaultRows(num(els.years.value, 20));
+render();
+</script>
+</body>
+</html>

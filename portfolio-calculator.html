@@ -57,7 +57,7 @@
   @media (max-width: 1000px) { .layout { grid-template-columns: 1fr; } }
   .table-wrap { padding: 18px 24px; overflow-x: auto; border-right: 1px solid var(--border); max-height: 78vh; }
   .chart-wrap { padding: 18px 24px; position: sticky; top: 0; align-self: start; }
-  table { border-collapse: collapse; width: 100%; min-width: 700px; }
+  table { border-collapse: collapse; width: 100%; min-width: 780px; }
   th, td { padding: 8px 10px; text-align: right; border-bottom: 1px solid var(--border); white-space: nowrap; }
   thead th { position: sticky; top: 0; background: var(--bg); z-index: 1; }
   th { color: var(--muted); font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: .03em; }
@@ -98,6 +98,8 @@
   .kstep:active { background: var(--accent); color: #fff; }
   .kstep.up { border-top-right-radius: 6px; }
   .kstep.down { border-top: 1px solid var(--border); border-bottom-right-radius: 6px; }
+  /* dim a field that's still at its default of 0 */
+  .kbox.dim input, .kbox.dim .ksuffix { color: #5b6470; }
   .period-label { font-weight: 600; }
   .amount { font-variant-numeric: tabular-nums; font-weight: 600; }
   .amount.up { color: var(--green); }
@@ -313,18 +315,23 @@ function renderTable(computed) {
     const realLine = showReal && !isStart ? `<div class="real">real ${money(c.real)}</div>` : "";
     const dirClass = isStart ? "" : (c.amount >= c.prev ? "up" : "down");
     const main = isStart && startMissing() ? "..." : money(c.amount);
-    const kField = (f, val) => `<span class="kbox">` +
-        `<input data-i="${i}" data-f="${f}" type="text" inputmode="numeric" value="${val}">` +
-        `<span class="ksuffix">k</span>` +
+    const kField = (f, val, suffix, step, min) => {
+      const dim = (min === 0 && val == 0) ? " dim" : "";
+      const minAttr = (min === null || min === undefined) ? "" : ` data-min="${min}"`;
+      const im = suffix === "%" ? "decimal" : "numeric";
+      return `<span class="kbox${dim}">` +
+        `<input data-i="${i}" data-f="${f}" type="text" inputmode="${im}" value="${val}">` +
+        `<span class="ksuffix">${suffix}</span>` +
         `<span class="ksteps">` +
-          `<button type="button" class="kstep up" data-i="${i}" data-f="${f}" data-step="1" aria-label="increase">▲</button>` +
-          `<button type="button" class="kstep down" data-i="${i}" data-f="${f}" data-step="-1" aria-label="decrease">▼</button>` +
+          `<button type="button" class="kstep up" data-i="${i}" data-f="${f}" data-step="${step}"${minAttr} aria-label="increase">▲</button>` +
+          `<button type="button" class="kstep down" data-i="${i}" data-f="${f}" data-step="${-step}"${minAttr} aria-label="decrease">▼</button>` +
         `</span></span>`;
+    };
     tr.innerHTML = `
       <td class="period-label">${L}${i}</td>
-      <td>${isStart ? "" : kField("add", r.add)}</td>
-      <td>${isStart ? "" : kField("withdraw", r.withdraw)}</td>
-      <td>${isStart ? "" : `<input data-i="${i}" data-f="rate" type="number" step="0.1" value="${rateVal}">`}</td>
+      <td>${isStart ? "" : kField("add", r.add, "k", 1, 0)}</td>
+      <td>${isStart ? "" : kField("withdraw", r.withdraw, "k", 1, 0)}</td>
+      <td>${isStart ? "" : kField("rate", rateVal, "%", 0.5, null)}</td>
       <td class="amount ${dirClass}">${main}${realLine}</td>
       <td class="row-actions">${isStart ? "" : `<button data-del="${i}" title="Remove">×</button>`}</td>`;
     els.tbody.appendChild(tr);
@@ -489,7 +496,12 @@ function updateAmounts(computed) {
 els.tbody.addEventListener("input", (e) => {
   const t = e.target;
   if (t.dataset.i !== undefined) {
-    rows[+t.dataset.i][t.dataset.f] = num(t.value, 0);
+    const i = +t.dataset.i, f = t.dataset.f;
+    rows[i][f] = num(t.value, 0);
+    if (f === "add" || f === "withdraw") {
+      const box = t.closest(".kbox");
+      if (box) box.classList.toggle("dim", rows[i][f] === 0);
+    }
     const computed = compute();
     renderSummary(computed);
     drawChart(computed);
@@ -497,12 +509,13 @@ els.tbody.addEventListener("input", (e) => {
   }
 });
 
-// Normalise an Add/Withdraw cell to a clean number once editing finishes.
+// Normalise a cell to a clean number once editing finishes.
 els.tbody.addEventListener("change", (e) => {
   const t = e.target;
-  if (t.tagName === "INPUT" && t.dataset.i !== undefined && (t.dataset.f === "add" || t.dataset.f === "withdraw")) {
-    t.value = rows[+t.dataset.i][t.dataset.f] || 0;
-  }
+  if (t.tagName !== "INPUT" || t.dataset.i === undefined) return;
+  const i = +t.dataset.i, f = t.dataset.f;
+  if (f === "add" || f === "withdraw") t.value = rows[i][f] || 0;
+  else if (f === "rate") t.value = rows[i].rate === null ? num(els.rate.value, 0) : rows[i].rate;
 });
 
 els.tbody.addEventListener("click", (e) => {
@@ -516,9 +529,15 @@ els.tbody.addEventListener("click", (e) => {
   }
   if (btn.dataset.step !== undefined) {
     const i = +btn.dataset.i, f = btn.dataset.f;
-    rows[i][f] = Math.max(0, (rows[i][f] || 0) + +btn.dataset.step);
-    const inp = btn.closest(".kbox").querySelector("input");
-    if (inp) inp.value = rows[i][f];
+    let cur = rows[i][f];
+    if (cur === null || cur === undefined) cur = (f === "rate") ? num(els.rate.value, 0) : 0;
+    let next = Math.round((cur + +btn.dataset.step) * 100) / 100;
+    if (btn.dataset.min !== undefined) next = Math.max(+btn.dataset.min, next);
+    rows[i][f] = next;
+    const box = btn.closest(".kbox");
+    const inp = box.querySelector("input");
+    if (inp) inp.value = next;
+    if (f === "add" || f === "withdraw") box.classList.toggle("dim", next === 0);
     const computed = compute();
     renderSummary(computed); drawChart(computed); updateAmounts(computed);
   }
